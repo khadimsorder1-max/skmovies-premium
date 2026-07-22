@@ -224,6 +224,48 @@ async function resolveFdmLink(fdmUrl) {
   };
 }
 
+async function resolveKrx18Link(linkUrl) {
+  if (!linkUrl.includes('krx18.com/links/')) return linkUrl;
+  try {
+    const r1 = await fetchWithTimeout(linkUrl, {
+      headers: { 'User-Agent': UA, 'Referer': 'https://krx18.com/' },
+    });
+    if (!r1.ok) return linkUrl;
+    const html = await r1.text();
+
+    const go = (html.match(/name="doo_hidden_go"\s+value="([^"]+)"/i) || [])[1] || '1';
+    const nonce = (html.match(/name="doo_hidden_nonce"\s+value="([^"]+)"/i) || [])[1];
+    const issued = (html.match(/name="doo_hidden_issued"\s+value="([^"]+)"/i) || [])[1];
+    const wait = (html.match(/name="doo_hidden_wait"\s+value="([^"]+)"/i) || [])[1];
+    const waitToken = (html.match(/name="doo_hidden_wait_token"\s+value="([^"]+)"/i) || [])[1];
+
+    if (!waitToken && !issued) return linkUrl;
+
+    const bodyParams = [];
+    bodyParams.push('doo_hidden_go=' + encodeURIComponent(go));
+    if (nonce) bodyParams.push('doo_hidden_nonce=' + encodeURIComponent(nonce));
+    if (issued) bodyParams.push('doo_hidden_issued=' + encodeURIComponent(issued));
+    if (wait) bodyParams.push('doo_hidden_wait=' + encodeURIComponent(wait));
+    if (waitToken) bodyParams.push('doo_hidden_wait_token=' + encodeURIComponent(waitToken));
+
+    const r2 = await fetch(linkUrl, {
+      method: 'POST',
+      headers: {
+        'User-Agent': UA,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Referer': linkUrl,
+      },
+      body: bodyParams.join('&'),
+      redirect: 'manual',
+    });
+
+    const loc = r2.headers.get('location');
+    return loc || linkUrl;
+  } catch {
+    return linkUrl;
+  }
+}
+
 export async function onRequestGet({ request }) {
   const url = new URL(request.url);
   const target = url.searchParams.get('url') || url.searchParams.get('u');
@@ -247,7 +289,11 @@ export async function onRequestGet({ request }) {
       result = await resolveSavelinks(target);
     } else if (/freedrivemovie\.(cyou|org|com)\/(links|episodes)\//i.test(target)) {
       result = await resolveFdmLink(target);
+    } else if (target.includes('krx18.com/links/')) {
+      const loc = await resolveKrx18Link(target);
+      result = { ok: true, urls: [loc], rawUrls: [loc], hosts: [{ host: 'Download Host', url: loc, text: 'Download Host' }], savelinksUrl: target, source: 'krx18' };
     } else if (isDirectVideo(target)) {
+
       // Direct video URL — just return it.
       result = { ok: true, urls: [target], rawUrls: [target], hosts: [], savelinksUrl: null, source: 'direct' };
     } else if (isIntermediate(target)) {
@@ -276,6 +322,7 @@ export async function onRequestOptions() {
   return new Response(null, {
     status: 204,
     headers: {
+     
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
       'Access-Control-Allow-Headers': '*',

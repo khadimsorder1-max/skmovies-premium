@@ -150,15 +150,20 @@ async function resolveKrx18Link(linkUrl) {
     if (!r1.ok) return linkUrl;
     var html = await r1.text();
 
-    var go = (html.match(/name="doo_hidden_go"\s+value="([^"]+)"/i) || [])[1];
+    var go = (html.match(/name="doo_hidden_go"\s+value="([^"]+)"/i) || [])[1] || '1';
     var nonce = (html.match(/name="doo_hidden_nonce"\s+value="([^"]+)"/i) || [])[1];
     var issued = (html.match(/name="doo_hidden_issued"\s+value="([^"]+)"/i) || [])[1];
     var wait = (html.match(/name="doo_hidden_wait"\s+value="([^"]+)"/i) || [])[1];
     var waitToken = (html.match(/name="doo_hidden_wait_token"\s+value="([^"]+)"/i) || [])[1];
 
-    if (!nonce || !waitToken) return linkUrl;
+    if (!waitToken && !issued) return linkUrl;
 
-    var bodyStr = `doo_hidden_go=${encodeURIComponent(go || '1')}&doo_hidden_nonce=${encodeURIComponent(nonce)}&doo_hidden_issued=${encodeURIComponent(issued || '')}&doo_hidden_wait=${encodeURIComponent(wait || '')}&doo_hidden_wait_token=${encodeURIComponent(waitToken)}`;
+    var bodyParams = [];
+    bodyParams.push('doo_hidden_go=' + encodeURIComponent(go));
+    if (nonce) bodyParams.push('doo_hidden_nonce=' + encodeURIComponent(nonce));
+    if (issued) bodyParams.push('doo_hidden_issued=' + encodeURIComponent(issued));
+    if (wait) bodyParams.push('doo_hidden_wait=' + encodeURIComponent(wait));
+    if (waitToken) bodyParams.push('doo_hidden_wait_token=' + encodeURIComponent(waitToken));
 
     var r2 = await fetch(linkUrl, {
       method: 'POST',
@@ -167,7 +172,7 @@ async function resolveKrx18Link(linkUrl) {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Referer': linkUrl,
       },
-      body: bodyStr,
+      body: bodyParams.join('&'),
       redirect: 'manual',
     });
 
@@ -177,6 +182,7 @@ async function resolveKrx18Link(linkUrl) {
     return linkUrl;
   }
 }
+
 
 function detectHost(url) {
   try {
