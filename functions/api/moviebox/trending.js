@@ -1,4 +1,4 @@
-﻿/* ============================================================================
+/* ============================================================================
    SKMovies — Cloudflare Pages Function: /api/moviebox/trending  v3.5.2
    ----------------------------------------------------------------------------
    STRATEGY:
@@ -77,9 +77,9 @@ export async function onRequestGet({ request, env }) {
   }
 
   // 2. GitHub mega-cache
-  if (env && env.SKM_CACHE_REPO) {
-    try {
-      const ghUrl = `https://raw.githubusercontent.com/${env.SKM_CACHE_REPO}/main/moviebox/latest${page !== '1' ? '-' + page : ''}.json`;
+  const cacheRepo = (env && env.SKM_CACHE_REPO) || 'khadimsorder1-max/skmovies-cache';
+  try {
+    const ghUrl = `https://raw.githubusercontent.com/${cacheRepo}/main/moviebox/latest${page !== '1' ? '-' + page : ''}.json`;
       const ghHeaders = { Accept: 'application/json' };
       if (env.SKM_CACHE_TOKEN) ghHeaders['Authorization'] = `Bearer ${env.SKM_CACHE_TOKEN}`;
       const r = await tryFetch(ghUrl);

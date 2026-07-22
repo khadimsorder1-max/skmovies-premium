@@ -12,8 +12,28 @@ export async function onRequest(context) {
     const c = await caches.default.match(cacheKey);
     if (c) return c;
   } catch {}
-  
+
+  // 1. Check GitHub mega-cache first
+  const cacheRepo = (context.env && context.env.SKM_CACHE_REPO) || 'khadimsorder1-max/skmovies-cache';
+  const safeSlug = slug.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 200);
   try {
+    const ghUrl = `https://raw.githubusercontent.com/${cacheRepo}/main/moviebox/movie/${safeSlug}.json`;
+    const ghResp = await fetch(ghUrl);
+    if (ghResp.ok) {
+      const ghText = await ghResp.text();
+      if (ghText.trim().startsWith('{')) {
+        const ghData = JSON.parse(ghText);
+        if (ghData.ok && (ghData.title || (ghData.downloads && ghData.downloads.length > 0))) {
+          const resp = new Response(JSON.stringify({ ...ghData, _cache: 'github' }), {
+            headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=600' }
+          });
+          try { await caches.default.put(cacheKey, resp.clone()); } catch {}
+          return resp;
+        }
+      }
+    }
+  } catch {}
+
     let pageUrl = `https://moviebox.ph/moviedetail/${detailPath}?id=${subjectId}&type=/movie/detail`;
     if (!detailPath || detailPath === subjectId) {
       pageUrl = `https://moviebox.ph/moviedetail/movie?id=${subjectId}&type=/movie/detail`;

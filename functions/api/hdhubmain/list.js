@@ -18,16 +18,34 @@ export async function onRequest(context) {
     targetUrl = `https://new3.hdhub4u.cl/page/${page}/?utm=mn1`;
   }
 
-  if (type === 'home' && context.env && context.env.SKMOVIES_KV) {
+  if (type === 'home') {
+    var cacheRepo = (context.env && context.env.SKM_CACHE_REPO) || 'khadimsorder1-max/skmovies-cache';
     try {
-      var kvData = await context.env.SKMOVIES_KV.get(`hdhubmain_home_${page}`);
-      if (kvData) {
-        return json(JSON.parse(kvData));
+      var ghUrl = 'https://raw.githubusercontent.com/' + cacheRepo + '/main/hdhubmain/latest' + (page > 1 ? '-' + page : '') + '.json';
+      var ghResp = await fetch(ghUrl);
+      if (ghResp.ok) {
+        var ghText = await ghResp.text();
+        if (ghText.trim().startsWith('{')) {
+          var ghData = JSON.parse(ghText);
+          if (ghData.ok && ghData.items && ghData.items.length > 0) {
+            return json(Object.assign({}, ghData, { _cache: 'github' }), 200, 120);
+          }
+        }
       }
-    } catch (e) {
-      console.warn("KV fetch failed", e);
+    } catch(e) {}
+
+    if (context.env && context.env.SKMOVIES_KV) {
+      try {
+        var kvData = await context.env.SKMOVIES_KV.get(`hdhubmain_home_${page}`);
+        if (kvData) {
+          return json(JSON.parse(kvData));
+        }
+      } catch (e) {
+        console.warn("KV fetch failed", e);
+      }
     }
   }
+
 
   try {
     var resp = await fetch(targetUrl, {
