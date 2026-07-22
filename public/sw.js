@@ -1,4 +1,5 @@
-const VERSION = 'skm-v3.7.0';
+const VERSION = 'skm-v3.7.5';
+
 
 const STATIC_CACHE = `skm-static-${VERSION}`;
 const RUNTIME_CACHE = `skm-runtime-${VERSION}`;

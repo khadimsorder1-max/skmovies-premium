@@ -1399,6 +1399,15 @@
     { id: 'krx18', label: 'KRX18', toast: 'KRX18.com সোর্সে চলে গেছে' },
   ];
 
+  function isKrx18Unlocked() {
+    return localStorage.getItem('skm.krx18_unlocked') === '1';
+  }
+
+  function getAvailableSources() {
+    if (isKrx18Unlocked()) return SOURCES;
+    return SOURCES.filter(s => s.id !== 'krx18');
+  }
+
   function applySourceUI() {
     const s = SOURCES.find(x => x.id === state.source) || SOURCES[0];
     dom.sourceToggle.classList.toggle('fdm', state.source === 'fdm');
@@ -1408,7 +1417,6 @@
     dom.sourceToggle.classList.toggle('kr', state.source === 'krx18');
     dom.sourceLabel.textContent = s.label;
   }
-
 
   function initSourceToggle() {
     applySourceUI();
@@ -1425,6 +1433,24 @@
           if (targetSource) switchSource(targetSource);
         });
       });
+      const unlockBtn = dom.sourcesSheet.querySelector('#unlockSourceBtn');
+      if (unlockBtn) {
+        unlockBtn.addEventListener('click', () => promptKrx18Unlock());
+      }
+    }
+  }
+
+  function promptKrx18Unlock() {
+    const code = prompt('🔑 Secret Unlock Code লিখুন:');
+    if (!code) return;
+    if (code.trim().toLowerCase() === 'krx18') {
+      localStorage.setItem('skm.krx18_unlocked', '1');
+      toast('🔓 Secret Source UNLOCKED!\nKRX18 সোর্স আনলক করা হয়েছে।', 'success', 4000);
+      const krxBtn = document.getElementById('krx18SourceBtn');
+      if (krxBtn) krxBtn.style.display = 'flex';
+      switchSource('krx18');
+    } else {
+      toast('❌ ভুল কোড! গোপন সোর্স আনলক করা সম্ভব হয়নি।', 'error', 3000);
     }
   }
 
@@ -1435,6 +1461,10 @@
     dom.sourcesSheet.setAttribute('aria-hidden', 'false');
     scrollLock.lock();
 
+    // Show or hide KRX18 button based on unlock state
+    const krxBtn = dom.sourcesSheet.querySelector('#krx18SourceBtn');
+    if (krxBtn) krxBtn.style.display = isKrx18Unlocked() ? 'flex' : 'none';
+
     // Highlight active source
     dom.sourcesSheet.querySelectorAll('.source-select-btn').forEach(btn => {
       const isCur = btn.getAttribute('data-source') === state.source;
@@ -1442,6 +1472,7 @@
       btn.style.background = isCur ? 'rgba(59,130,246,0.12)' : 'rgba(255,255,255,0.04)';
     });
   }
+
 
   function closeSourcesSheet() {
     if (!dom.sourcesSheet) return;
@@ -2227,8 +2258,9 @@
                 <div class="dl-group__grid">
                   ${g.items.map((item) => {
                     const cls = /480/i.test(item.quality) ? 'sd' : /720/i.test(item.quality) ? 'hd' : /1080/i.test(item.quality) ? 'fhd' : 'uhd';
-                    return `<a class="dl-btn dl-btn--${cls}" data-savelinks="${escapeHtml(item.savelinks_url)}" data-quality="${escapeHtml(item.quality)}" data-size="${escapeHtml(item.size || '')}" href="#"><span class="dl-btn__quality">${escapeHtml(item.quality)}</span>${item.size ? `<span class="dl-btn__size">${escapeHtml(item.size)}</span>` : ''}</a>`;
+                    return `<a class="dl-btn dl-btn--${cls}" data-savelinks="${escapeHtml(item.savelinks_url || item.url)}" data-quality="${escapeHtml(item.quality)}" data-size="${escapeHtml(item.size || '')}" href="${escapeHtml(item.savelinks_url || item.url)}" target="_blank" rel="noopener noreferrer"><span class="dl-btn__quality">${escapeHtml(item.host ? item.host + ' ' + (item.quality || 'DL') : (item.quality || 'Download'))}</span>${item.size ? `<span class="dl-btn__size">${escapeHtml(item.size)}</span>` : ''}</a>`;
                   }).join('')}
+
                 </div>
               </div>`).join('')}
           </div>` : ''}
@@ -2532,19 +2564,22 @@
     if (!isSavelinks && !isFdmLink) {
       const isZip = /\.zip\b/i.test(savelinksUrl) || savelinksUrl.includes('.zip');
       if (isZip) { toast('ZIP ডাউনলোড শুরু হচ্ছে…', 'success'); window.open(savelinksUrl, '_blank'); return; }
+      const isDirectDownloadHost = /k2s\.cc|keep2share|nitroflare|alterupload|1fichier|filebee|gofile|vikingfile|megaup|fastdl/i.test(savelinksUrl);
+      if (isDirectDownloadHost) {
+        toast('ডাউনলোড শুরু হচ্ছে…', 'success');
+        return;
+      }
+
       const isVideo = /\.(mp4|mkv|m3u8|webm)\b/i.test(savelinksUrl);
-      // [#v3.5.0] HDHubMain direct-download hosts (hubcdn.sbs, hubdrive.tips,
-      // gadgetsweb.xyz, hdstream4u.com, hubstream.art) are NOT direct video
-      // URLs but they ARE intermediate pages that we can deep-resolve.
-      // Open them in the player sheet — the iframe-player will extract the
-      // direct video URL via /api/proxy + HTML parse.
       const isIntermediateDlHost = /hubcdn\.sbs|hubdrive\.(tips|com|net)|gadgetsweb\.xyz|hdstream4u\.com|hubstream\.art|hubcloud\.(foo|lol|com)|gdflix\.(dev|dad|com|io)|filepress\.(baby|com)|gdtot\.(dad|com|dev)|gdlink\.dev|multidownload\.website|busycdn\.xyz|indexserver\.site|multicloudlinks/i.test(savelinksUrl);
+
       if (!isVideo && !isIntermediateDlHost) {
         // Truly external link — open in new tab
         toast('বাইরের লিংক খোলা হচ্ছে…', 'success');
         window.open(savelinksUrl, '_blank');
         return;
       }
+
       // Either direct video OR intermediate host — open in player sheet
       recordUrl(quality || 'DL', savelinksUrl, title);
       openPlayerSheet(savelinksUrl, title, []);
