@@ -404,17 +404,24 @@ function getListUrl(src, page) {
   if (src === 'mlsbd') return SKM_SITE + '/api/latest?page=' + page;
   if (src === 'fdm') return SKM_SITE + '/api/fdm/latest?page=' + page;
   if (src === 'fibwatch') return SKM_SITE + '/api/fibwatch/latest?page=' + page;
+  if (src === 'krx18') return SKM_SITE + '/api/krx18/list?type=home&page=' + page;
+  if (src === 'fojik') return SKM_SITE + '/api/fojik/list?type=home&page=' + page;
 }
 function getTrendingUrl(src) {
   if (src === 'mlsbd') return SKM_SITE + '/api/trending';
   if (src === 'fdm') return SKM_SITE + '/api/fdm/trending';
-  if (src === 'fibwatch') return SKM_SITE + '/api/fibwatch/trending';
+  if (src === 'fibwatch') return SKM_SITE + '/api/fibwatch/latest';
+  if (src === 'krx18') return SKM_SITE + '/api/krx18/list?type=home';
+  if (src === 'fojik') return SKM_SITE + '/api/fojik/list?type=home';
 }
 function getMovieUrl(src, slug) {
   if (src === 'mlsbd') return SKM_SITE + '/api/movie?slug=' + encodeURIComponent(slug);
   if (src === 'fdm') return SKM_SITE + '/api/fdm/movie?slug=' + encodeURIComponent(slug);
   if (src === 'fibwatch') return SKM_SITE + '/api/fibwatch/movie?slug=' + encodeURIComponent(slug);
+  if (src === 'krx18') return SKM_SITE + '/api/krx18/movie?slug=' + encodeURIComponent(slug);
+  if (src === 'fojik') return SKM_SITE + '/api/fojik/movie?slug=' + encodeURIComponent(slug);
 }
+
 function respItems(r) { return r ? (r.movies || r.items || []) : []; }
 
 async function buildGenericSource(src) {
@@ -457,7 +464,8 @@ async function main() {
   console.log('SKMovies Mega Cache Builder v3.5.2');
   console.log('  Site: ' + SKM_SITE + '  Repo: ' + GH_REPO + '  Pages: ' + PAGES_PER_SOURCE + '  Details: ' + DETAILS_PER_SOURCE);
   var requested = (process.env.SOURCES || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-  var all = requested.length > 0 ? requested : ['moviebox', 'hdhub4u', 'hdhubmain', 'mlsbd', 'fdm', 'fibwatch', 'krx18'];
+  var all = requested.length > 0 ? requested : ['moviebox', 'hdhub4u', 'hdhubmain', 'mlsbd', 'fdm', 'fibwatch', 'krx18', 'fojik'];
+
 
   for (var i = 0; i < all.length; i++) {
     var src = all[i];

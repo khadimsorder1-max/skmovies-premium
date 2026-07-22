@@ -1,0 +1,29 @@
+name: Build Mega Cache
+
+on:
+  schedule:
+    - cron: '0 */4 * * *' # Run every 4 hours
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  build-cache:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build Cache
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_REPO: 'khadimsorder1-max/skmovies-cache'
+          SKM_SITE: 'https://skmovies-premium.pages.dev'
+          PAGES: '30'
+          DETAILS: '500'
+          CONCURRENCY: '4'
+          SOURCES: 'moviebox,hdhub4u,hdhubmain,mlsbd,fdm,fibwatch,krx18,fojik'
+        run: node scripts/build_cache.js
