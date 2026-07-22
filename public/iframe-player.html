@@ -267,6 +267,21 @@
         }
       }
 
+      function renderSandboxedIframe(iframeUrl) {
+        hideLoading();
+        video.style.display = 'none';
+        let frame = document.getElementById('sandboxedEmbedFrame');
+        if (!frame) {
+          frame = document.createElement('iframe');
+          frame.id = 'sandboxedEmbedFrame';
+          frame.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms');
+          frame.setAttribute('allowfullscreen', 'true');
+          frame.style.cssText = 'width:100%;height:100%;border:none;background:#000;position:absolute;inset:0;z-index:4;';
+          document.querySelector('.player-wrap').appendChild(frame);
+        }
+        frame.src = iframeUrl;
+      }
+
       async function start() {
         const streamUrl = decodeUrl(rawUrl);
         if (!streamUrl) {
@@ -286,8 +301,8 @@
             if (extracted) {
               playUrl = extracted;
             } else {
-              // Couldn't extract — show error with link to source page
-              showError('Could not extract direct video from this stream provider. Open the source page to play directly:', streamUrl);
+              // Fallback to Sandboxed Iframe Embed with ALL popups/ads BLOCKED!
+              renderSandboxedIframe(streamUrl);
               return;
             }
           } else if (!isDirectVideo(streamUrl)) {
@@ -303,16 +318,18 @@
               }
             } catch {}
             if (!isDirectVideo(playUrl)) {
-              showError('Could not find a direct video URL. Open the source page:', streamUrl);
+              // Fallback to Sandboxed Iframe Embed
+              renderSandboxedIframe(streamUrl);
               return;
             }
           }
 
           playVideo(playUrl);
         } catch (e) {
-          showError('Error: ' + (e.message || 'Unknown error'));
+          renderSandboxedIframe(streamUrl);
         }
       }
+
 
       // Controls
       let controlsTimer = null;

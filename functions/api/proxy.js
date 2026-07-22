@@ -86,8 +86,19 @@ export async function onRequestGet({ request }) {
     'Accept': '*/*',
     'Accept-Language': 'en-US,en;q=0.9',
   };
+
+  if (parsed.hostname.includes('kb-cdn.net') || parsed.hostname.includes('fibwatch')) {
+    upstreamHeaders['Referer'] = 'https://fibwatch.art/';
+    upstreamHeaders['Origin'] = 'https://fibwatch.art';
+  } else if (parsed.hostname.includes('multidownload') || parsed.hostname.includes('multicloud')) {
+    upstreamHeaders['Referer'] = 'https://multidownload.website/';
+  } else {
+    upstreamHeaders['Referer'] = parsed.origin + '/';
+  }
+
   const range = request.headers.get('Range');
   if (range) upstreamHeaders['Range'] = range;
+
 
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);

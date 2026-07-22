@@ -78,11 +78,18 @@ async function deepScrape(intermediateUrl) {
     // Already a direct video? Return the URL itself.
     if (/video\//i.test(ct)) return [intermediateUrl];
     const html = await resp.text();
+    // Support .m3u / #EXTM3U stream playlist parsing (e.g. Multidownload / Multicloud .m3u links)
+    if (html.includes('#EXTM3U') || /\.m3u8?(\?|$)/i.test(intermediateUrl)) {
+      const lines = html.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+      const directUrls = lines.filter(l => /^https?:\/\//i.test(l));
+      if (directUrls.length > 0) return directUrls;
+    }
     // Match https://...mp4|mkv|m3u8|webm (with optional query)
     const re = /https?:\/\/[^\s"'<>\)]+\.(?:mp4|mkv|webm|m3u8)(?:\?[^\s"'<>\)]*)?/gi;
     const matches = html.match(re) || [];
     // De-dup
     return [...new Set(matches)];
+
   } catch (e) {
     console.warn('deepScrape failed for', intermediateUrl, e.message);
     return [];

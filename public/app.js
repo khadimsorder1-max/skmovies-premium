@@ -2870,15 +2870,14 @@
       btns.push(`<a class="sheet__btn" href="${escapeHtml(hdhubPlayerUrl)}" target="_blank" rel="noopener"><span class="sheet__btn-icon">🎬</span>HDPlayer</a>`);
     }
     if (d.isAndroid) {
-      btns.push(mkBtn('External Player (VLC / MX)', `intent:${intentStreamUrl}#Intent;action=android.intent.action.VIEW;type=video/*;end;`, '📱', true));
-      btns.push(mkBtn('VLC Player', `vlc://${intentStreamUrl}`, '🟠'));
-      btns.push(mkBtn('MX Player', `intent:${intentStreamUrl}#Intent;package=com.mxtech.videoplayer.ad;type=video/*;end;`, '🔹'));
+      btns.push(mkBtn('External Player App', `intent:${intentStreamUrl}#Intent;action=android.intent.action.VIEW;type=video/*;end;`, '📱', false));
     } else {
-      btns.push(mkBtn('External Player (VLC)', `vlc://${intentStreamUrl}`, '📱', true));
+      btns.push(mkBtn('External Player App', `vlc://${intentStreamUrl}`, '📱', false));
     }
     btns.push(mkBtn('Browser Stream', streamUrl, browserSvg));
     btns.push(mkBtn('Direct Download', downloadUrl, dlSvg));
     return btns.join('');
+
   }
 
   /* ─── Section head + nav ────────────────────────────────────────────── */
