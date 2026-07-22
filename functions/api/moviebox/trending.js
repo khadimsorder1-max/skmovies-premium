@@ -96,9 +96,9 @@ export async function onRequestGet({ request, env }) {
         }
       }
     } catch {}
-  }
 
   // 3. Live upstream sources (aoneroom.com primary, moviebox.ph fallback)
+
   const SOURCES = [
     `https://h5-api.aoneroom.com/wefeed-h5api-bff/subject/trending?page=${page}&perPage=${perPage}`,
     `https://moviebox.ph/wefeed-h5api-bff/subject/trending?page=${page}&perPage=${perPage}`,

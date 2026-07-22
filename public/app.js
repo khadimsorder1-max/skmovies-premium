@@ -109,6 +109,19 @@
         notice: '/api/notice',
       };
     }
+    if (src === 'krx18') {
+      return {
+        latest: buildCacheApi('latest'),
+        movie: buildCacheApi('movie'),
+        search: '/api/krx18/list?type=search',
+        trending: buildCacheApi('latest'),
+        resolve: '/api/krx18/stream',
+        category: buildCacheApi('category'),
+        img: '/api/img',
+        notice: '/api/notice',
+      };
+    }
+
     return {
       latest: buildCacheApi('latest'),
       movie: buildCacheApi('movie'),
@@ -355,11 +368,25 @@
     { name: "🎌 Anime Cartoon", slug: "22" },
   ];
 
+  const KRX18_CATEGORIES = [
+    { name: "🔤 Eng Subbed", slug: "eng-sub" },
+    { name: "🔞 X Clip", slug: "xxx" },
+    { name: "🇰🇷 Korea", slug: "korea" },
+    { name: "🇦🇺 Australia", slug: "australia" },
+    { name: "🇨🇦 Canada", slug: "canada" },
+    { name: "🇨🇳 China", slug: "china" },
+    { name: "🇫🇷 France", slug: "france" },
+    { name: "🇩🇪 Germany", slug: "germany" },
+    { name: "🇯🇵 Japan", slug: "japan" },
+    { name: "🇺🇸 USA", slug: "usa" },
+  ];
+
   function getCategories() {
     if (state.source === 'fdm') return FDM_CATEGORIES;
     if (state.source === 'hdhub4u') return HDHUB4U_CATEGORIES;
     if (state.source === 'moviebox') return MOVIEBOX_CATEGORIES;
     if (state.source === 'fibwatch') return FIBWATCH_CATEGORIES;
+    if (state.source === 'krx18') return KRX18_CATEGORIES;
     return MLSBD_CATEGORIES;
   }
 
@@ -373,9 +400,10 @@
     view: 'latest', page: 1, filter: 'all', searchQuery: '',
     items: [], isLoading: false, hasMore: true, heroItem: null,
     currentMovieSlug: null, filter18: false, hasError: false,
-    source: (() => { const s = localStorage.getItem('skm.source'); return (s === 'fdm' || s === 'hdhub4u' || s === 'hdhubmain' || s === 'moviebox' || s === 'fibwatch') ? s : 'mlsbd'; })(),
+    source: (() => { const s = localStorage.getItem('skm.source'); return (s === 'fdm' || s === 'hdhub4u' || s === 'hdhubmain' || s === 'moviebox' || s === 'fibwatch' || s === 'krx18') ? s : 'mlsbd'; })(),
     playerMode: (() => { const p = localStorage.getItem('skm.player'); return (p === 'hdhub4u') ? 'hdhub4u' : 'inpage'; })(),
   };
+
 
   const $ = (s) => document.querySelector(s);
   const dom = {};
@@ -1324,15 +1352,21 @@
   function initTheme() {
     const isDark = ls.get(STORE.theme, null) === true;
     updateThemeColor(isDark);
-    if (isDark) { document.documentElement.classList.add('dark-ui'); dom.darkToggle.checked = true; }
+    if (isDark) {
+      document.documentElement.classList.add('dark-ui');
+      document.body.classList.add('dark-ui');
+      dom.darkToggle.checked = true;
+    }
     dom.darkToggle.addEventListener('change', () => {
       const dark = dom.darkToggle.checked;
       document.documentElement.classList.toggle('dark-ui', dark);
+      document.body.classList.toggle('dark-ui', dark);
       ls.set(STORE.theme, dark);
       updateThemeColor(dark);
       haptic(HAPTIC.tap);
     });
   }
+
   function updateThemeColor(isDark) {
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', isDark ? '#0d0f14' : '#ffffff');
@@ -1362,6 +1396,7 @@
     { id: 'hdhubmain', label: 'HDHub Main', toast: 'HDHub Main সোর্সে চলে গেছে' },
     { id: 'moviebox', label: 'MovieBox', toast: 'MovieBox সোর্সে চলে গেছে' },
     { id: 'fibwatch', label: 'Fibwatch', toast: 'Fibwatch.art সোর্সে চলে গেছে' },
+    { id: 'krx18', label: 'KRX18', toast: 'KRX18.com সোর্সে চলে গেছে' },
   ];
 
   function applySourceUI() {
@@ -1370,8 +1405,10 @@
     dom.sourceToggle.classList.toggle('hd', state.source === 'hdhub4u');
     dom.sourceToggle.classList.toggle('mb', state.source === 'moviebox');
     dom.sourceToggle.classList.toggle('fw', state.source === 'fibwatch');
+    dom.sourceToggle.classList.toggle('kr', state.source === 'krx18');
     dom.sourceLabel.textContent = s.label;
   }
+
 
   function initSourceToggle() {
     applySourceUI();

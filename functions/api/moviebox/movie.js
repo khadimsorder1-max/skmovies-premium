@@ -34,6 +34,7 @@ export async function onRequest(context) {
     }
   } catch {}
 
+  try {
     let pageUrl = `https://moviebox.ph/moviedetail/${detailPath}?id=${subjectId}&type=/movie/detail`;
     if (!detailPath || detailPath === subjectId) {
       pageUrl = `https://moviebox.ph/moviedetail/movie?id=${subjectId}&type=/movie/detail`;

@@ -457,7 +457,8 @@ async function main() {
   console.log('SKMovies Mega Cache Builder v3.5.2');
   console.log('  Site: ' + SKM_SITE + '  Repo: ' + GH_REPO + '  Pages: ' + PAGES_PER_SOURCE + '  Details: ' + DETAILS_PER_SOURCE);
   var requested = (process.env.SOURCES || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-  var all = requested.length > 0 ? requested : ['moviebox', 'hdhub4u', 'hdhubmain', 'mlsbd', 'fdm', 'fibwatch'];
+  var all = requested.length > 0 ? requested : ['moviebox', 'hdhub4u', 'hdhubmain', 'mlsbd', 'fdm', 'fibwatch', 'krx18'];
+
   for (var i = 0; i < all.length; i++) {
     var src = all[i];
     try {

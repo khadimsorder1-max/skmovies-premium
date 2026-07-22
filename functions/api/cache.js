@@ -225,7 +225,15 @@ export async function onRequestGet({ request, env }) {
             ? `/api/fibwatch/trending?page=${page}`
             : `/api/fibwatch/latest?page=${page}`;
       break;
+    case 'krx18':
+      upstreamUrl = path === 'movie'
+        ? `/api/krx18/movie?slug=${encodeURIComponent(slug)}`
+        : path === 'category'
+          ? `/api/krx18/category?slug=${encodeURIComponent(slug)}&page=${page}`
+          : `/api/krx18/list?type=${path}&page=${page}${slug ? `&slug=${encodeURIComponent(slug)}` : ''}`;
+      break;
   }
+
 
   // Add search query if applicable
   const q = url.searchParams.get('q');
