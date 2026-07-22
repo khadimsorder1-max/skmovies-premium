@@ -140,6 +140,45 @@ async function parseKrx18Movie(html, slug, movieUrl) {
   };
 }
 
+async function resolve1FichierDirect(alterUrl) {
+  if (!alterUrl || !/1fichier|alterupload/i.test(alterUrl)) return null;
+  try {
+    var r1 = await fetch(alterUrl, {
+      headers: {
+        'User-Agent': UA,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      }
+    });
+    if (!r1.ok) return null;
+    var html1 = await r1.text();
+
+    if (html1.includes('You must wait') || html1.includes('Without subscription')) {
+      return null;
+    }
+
+    var r2 = await fetch(alterUrl, {
+      method: 'POST',
+      headers: {
+        'User-Agent': UA,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Referer': alterUrl,
+      },
+      body: 'dl_no_ssl=on',
+      redirect: 'manual',
+    });
+
+    var loc = r2.headers.get('location');
+    if (loc && /1fichier|alterupload|cdn/i.test(loc)) return loc;
+
+    var html2 = await r2.text();
+    var cdnMatch = html2.match(/href="(https?:\/\/[a-z0-9-]+\.1fichier\.com\/[^"]+)"/i) ||
+                   html2.match(/https?:\/\/[a-z0-9-]+\.1fichier\.com\/[^\s"'<>]+/gi);
+    return cdnMatch ? (Array.isArray(cdnMatch) ? cdnMatch[0] : cdnMatch[1]) : null;
+  } catch(e) {
+    return null;
+  }
+}
+
 // Resolve krx18.com/links/XXXX form POST to get final 302 Location header
 async function resolveKrx18Link(linkUrl) {
   if (!linkUrl.includes('krx18.com/links/')) return linkUrl;
@@ -177,11 +216,16 @@ async function resolveKrx18Link(linkUrl) {
     });
 
     var loc = r2.headers.get('location');
-    return loc || linkUrl;
+    if (loc) {
+      var direct1F = await resolve1FichierDirect(loc);
+      return direct1F || loc;
+    }
+    return linkUrl;
   } catch(e) {
     return linkUrl;
   }
 }
+
 
 
 function detectHost(url) {
