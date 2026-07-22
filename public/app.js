@@ -2501,7 +2501,14 @@
       // If upstream already returned a video, return the proxied URL as-is.
       if (/video\//i.test(ct)) return proxied;
       const html = await resp.text();
+      // Support .m3u / #EXTM3U playlist content (e.g. Multidownload / Multicloud watch stream)
+      if (html.includes('#EXTM3U') || intermediateUrl.includes('.m3u')) {
+        const lines = html.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+        const directUrls = lines.filter(l => /^https?:\/\//i.test(l));
+        if (directUrls.length > 0) return directUrls[0];
+      }
       // Look for direct video URLs in the HTML.
+
       // Pattern 1: <a href="https://...mkv">
       // Pattern 2: "download_url":"https://...mp4" (JSON in script tags)
       // Pattern 3: data-url="https://...mkv"
