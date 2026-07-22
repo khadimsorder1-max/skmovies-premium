@@ -1486,14 +1486,15 @@
       localStorage.setItem('skm.krx18_unlocked', '1');
       closeUnlockModal();
       closeSourcesSheet();
-      toast('🔓 Secret Source UNLOCKED!\nKRX18 সোর্স সফলভাবে আনলক করা হয়েছে।', 'success', 4000);
+      toast('🔓 Secret Source Unlocked!', 'success', 4000);
       const krxBtn = document.getElementById('krx18SourceBtn');
       if (krxBtn) krxBtn.style.display = 'flex';
       switchSource('krx18');
     } else {
-      toast('❌ ভুল Unlock Code! (পাসকোড: krx18)', 'error', 3000);
+      toast('❌ Invalid unlock code!', 'error', 3000);
     }
   }
+
 
 
   function openSourcesSheet() {
