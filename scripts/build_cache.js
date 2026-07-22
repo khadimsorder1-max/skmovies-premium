@@ -315,8 +315,27 @@ async function parseHDHubMoviePage(html, slug) {
     } catch(e) {}
   }
 
-  return { title: title, poster: poster, year: year, storyline: storyline, downloads: downloads, streams: [] };
+  var streams = [];
+  var seenStreamUrls = new Set();
+  var streamLinkRe = /<a\s+[^>]*href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+  var sm;
+  while ((sm = streamLinkRe.exec(scopedHtml)) !== null) {
+    var sUrl = sm[1];
+    var sText = sm[2].replace(/<[^>]+>/g, '').trim().toUpperCase();
+    if (/hdstream4u\.com|morencius\.com|hubstream\.art/i.test(sUrl) || /WATCH|PLAYER-2|STREAM|ONLINE/i.test(sText)) {
+      if (!seenStreamUrls.has(sUrl) && !/facebook|twitter|telegram|whatsapp/i.test(sUrl)) {
+        seenStreamUrls.add(sUrl);
+        var label = sText || 'Watch Stream';
+        if (/hdstream4u|morencius/i.test(sUrl) || sText === 'WATCH') label = 'Watch Player 1 (HDStream / Direct HLS)';
+        else if (/hubstream/i.test(sUrl) || sText === 'PLAYER-2') label = 'Watch Player 2 (HubStream)';
+        streams.push({ label: label, url: sUrl, host: /hdstream|morencius/i.test(sUrl) ? 'HDStream' : (/hubstream/i.test(sUrl) ? 'HubStream' : 'Stream') });
+      }
+    }
+  }
+
+  return { title: title, poster: poster, year: year, storyline: storyline, downloads: downloads, streams: streams };
 }
+
 
 var HDHUB4U_HOSTS = ['https://hdhub4us.ai.in', 'https://hdhub4u.skin', 'https://new3.hdhub4u.cl'];
 var HDHUBMAIN_HOSTS = ['https://new3.hdhub4u.cl', 'https://hdhub4us.ai.in', 'https://hdhub4u.skin'];

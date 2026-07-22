@@ -66,6 +66,7 @@ export async function onRequest(context) {
 
   if (!html) return json({ ok: false, error: 'All domains failed', fallback: true }, 200);
 
+  try {
     var titleM = html.match(/<h1[^>]*class="[^"]*entry-title[^"]*"[^>]*>([\s\S]*?)<\/h1>/i) || html.match(/<title>([^<]+)<\/title>/i);
     var title = titleM ? titleM[1].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#0?38;/g, '&').trim() : slug;
 
@@ -173,14 +174,45 @@ export async function onRequest(context) {
     }
 
     const streams = [];
-    const iframeRegex = /<iframe[^>]+src="(https?:\/\/(?:hubstream\.art|new3\.hdhub4u\.cl)[^"]+)"/gi;
+    const seenStreamUrls = new Set();
+
+    // 1. Extract WATCH & PLAYER-2 links from page HTML
+    const streamLinkRe = /<a\s+[^>]*href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+    let sm;
+    while ((sm = streamLinkRe.exec(scopedHtml)) !== null) {
+      const sUrl = sm[1];
+      const sText = sm[2].replace(/<[^>]+>/g, '').trim().toUpperCase();
+      if (/hdstream4u\.com|morencius\.com|hubstream\.art/i.test(sUrl) || /WATCH|PLAYER-2|STREAM|ONLINE/i.test(sText)) {
+        if (!seenStreamUrls.has(sUrl) && !/facebook|twitter|telegram|whatsapp/i.test(sUrl)) {
+          seenStreamUrls.add(sUrl);
+          let label = sText || 'Watch Stream';
+          if (/hdstream4u|morencius/i.test(sUrl) || sText === 'WATCH') label = 'Watch Player 1 (HDStream / Direct HLS)';
+          else if (/hubstream/i.test(sUrl) || sText === 'PLAYER-2') label = 'Watch Player 2 (HubStream)';
+          
+          streams.push({
+            label: label,
+            url: sUrl,
+            host: /hdstream|morencius/i.test(sUrl) ? 'HDStream' : (/hubstream/i.test(sUrl) ? 'HubStream' : 'Stream')
+          });
+        }
+      }
+    }
+
+    // 2. Extract iframe players
+    const iframeRegex = /<iframe[^>]+src="(https?:\/\/[^"]+)"/gi;
     let im;
     while ((im = iframeRegex.exec(scopedHtml)) !== null) {
-      streams.push({
-        url: im[1],
-        label: 'HDHub Stream'
-      });
+      const iUrl = im[1];
+      if (!seenStreamUrls.has(iUrl) && !/youtube|facebook|twitter|slider/i.test(iUrl)) {
+        seenStreamUrls.add(iUrl);
+        streams.push({
+          url: iUrl,
+          label: /hubstream/i.test(iUrl) ? 'Watch Player 2 (HubStream)' : 'HDHub Stream Player',
+          host: 'Embed'
+        });
+      }
     }
+
 
     return json({
       ok: true,
