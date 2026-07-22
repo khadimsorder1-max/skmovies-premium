@@ -1,0 +1,14 @@
+{
+  "name": "skmovies-premium",
+  "version": "3.3.8",
+  "description": "SKMovies — The Largest Movie Link Store of Bangladesh. Cloudflare Pages frontend + Pages Functions backend.",
+  "private": true,
+  "scripts": {
+    "dev": "npx wrangler pages dev . --port 8788",
+    "deploy": "npx wrangler pages deploy . --project-name skmovies-premium",
+    "preview": "python3 -m http.server 8080"
+  },
+  "devDependencies": {
+    "wrangler": "^3.78.0"
+  }
+}

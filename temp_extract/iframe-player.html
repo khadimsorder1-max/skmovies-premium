@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>SKMovies Player</title>
+  <style>
+    /* ========================================================================
+       SKMovies Iframe Player — ad-blocking stream player
+       ------------------------------------------------------------------------
+       This page is loaded inside an <iframe> on the SKMovies site. It accepts
+       ?url=<encoded-stream-url>&title=<encoded-title> and renders the video
+       stream in a fullscreen-friendly player.
+
+       Ad-blocking strategy:
+         1. The stream URL is fetched via /api/proxy (server-side) to bypass
+            CORS and strip any injected scripts/ads.
+         2. We use hls.js for m3u8 streams; <video> for mp4/webm/mkv.
+         3. For iframe-based stream providers (hubstream.art, hdstream4u.com,
+            new3.hdhub4u.cl), we DON'T load them in a sub-iframe (which would
+            show their ads). Instead, we extract the actual video source URL
+            via /api/proxy fetch + HTML parse, then play it directly in our
+            own <video> element.
+
+       Loaded as: /iframe-player.html?url=<base64>&title=<urlencoded>
+       ======================================================================== */
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: #000; overflow: hidden; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .player-wrap {
+      position: relative; width: 100vw; height: 100vh; background: #000;
+      display: flex; align-items: center; justify-content: center;
+    }
+    video {
+      max-width: 100%; max-height: 100%; width: 100%; height: 100%;
+      object-fit: contain; background: #000;
+    }
+    .loading-overlay {
+      position: absolute; inset: 0; background: rgba(0,0,0,0.85);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 16px; z-index: 10;
+    }
+    .loading-overlay.hidden { display: none; }
+    .spinner {
+      width: 48px; height: 48px; border: 4px solid rgba(255,255,255,0.2);
+      border-top-color: #60a5fa; border-radius: 50%; animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: 14px; color: #cbd5e1; text-align: center; max-width: 80vw; }
+    .error-overlay {
+      position: absolute; inset: 0; background: rgba(0,0,0,0.95);
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      gap: 12px; padding: 20px; z-index: 20; text-align: center;
+    }
+    .error-overlay.show { display: flex; }
+    .error-overlay h2 { color: #fca5a5; font-size: 18px; }
+    .error-overlay p { color: #cbd5e1; font-size: 14px; max-width: 80vw; }
+    .error-overlay button {
+      padding: 10px 20px; background: #2563eb; color: #fff; border: none;
+      border-radius: 8px; font-size: 14px; cursor: pointer; margin-top: 12px;
+    }
+    .error-overlay a {
+      color: #60a5fa; font-size: 13px; word-break: break-all; text-decoration: underline;
+    }
+    .title-bar {
+      position: absolute; top: 0; left: 0; right: 0; padding: 12px 16px;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+      font-size: 14px; z-index: 5; pointer-events: none;
+      opacity: 0; transition: opacity 0.3s;
+    }
+    .title-bar.show { opacity: 1; }
+    .close-btn {
+      position: absolute; top: 12px; right: 12px; width: 36px; height: 36px;
+      background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 50%; color: #fff; cursor: pointer; z-index: 6;
+      display: flex; align-items: center; justify-content: center; font-size: 18px;
+    }
+    .close-btn:hover { background: rgba(255,0,0,0.5); }
+  </style>
+</head>
+<body>
+  <div class="player-wrap">
+    <video id="video" playsinline controls></video>
+    <div class="title-bar" id="titleBar"></div>
+    <button class="close-btn" id="closeBtn" title="Close (Esc)">✕</button>
+    <div class="loading-overlay" id="loading">
+      <div class="spinner"></div>
+      <div class="loading-text" id="loadingText">Loading stream…</div>
+    </div>
+    <div class="error-overlay" id="errorOverlay">
+      <h2 id="errorTitle">Playback failed</h2>
+      <p id="errorMsg"></p>
+      <a id="errorLink" href="#" target="_blank" rel="noopener" style="display:none;"></a>
+      <button id="retryBtn">Try again</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest" crossorigin="anonymous"></script>
+  <script>
+    (function() {
+      'use strict';
+
+      const video = document.getElementById('video');
+      const loading = document.getElementById('loading');
+      const loadingText = document.getElementById('loadingText');
+      const errorOverlay = document.getElementById('errorOverlay');
+      const errorMsg = document.getElementById('errorMsg');
+      const errorLink = document.getElementById('errorLink');
+      const errorTitle = document.getElementById('errorTitle');
+      const retryBtn = document.getElementById('retryBtn');
+      const titleBar = document.getElementById('titleBar');
+      const closeBtn = document.getElementById('closeBtn');
+
+      const params = new URLSearchParams(location.search);
+      const rawUrl = params.get('url'); // base64-urlsafe OR raw URL
+      const title = params.get('title') || 'Movie';
+
+      titleBar.textContent = decodeURIComponent(title);
+      document.title = decodeURIComponent(title) + ' — SKMovies Player';
+
+      let hls = null;
+      let currentStreamUrl = null;
+
+      // Decode ?url= param (accepts base64-urlsafe or raw URL-encoded)
+      function decodeUrl(param) {
+        if (!param) return null;
+        // Try base64-urlsafe
+        let b64 = param.replace(/-/g, '+').replace(/_/g, '/');
+        while (b64.length % 4) b64 += '=';
+        try {
+          const decoded = atob(b64);
+          if (/^https?:\/\//i.test(decoded)) return decoded;
+        } catch {}
+        // Try URL-encoded
+        try {
+          const decoded = decodeURIComponent(param);
+          if (/^https?:\/\//i.test(decoded)) return decoded;
+        } catch {}
+        // Try raw
+        if (/^https?:\/\//i.test(param)) return param;
+        return null;
+      }
+
+      // Wrap any URL in /api/proxy for CORS bypass.
+      function proxied(url) {
+        if (!url) return url;
+        if (url.startsWith('/api/proxy?')) return url;
+        if (url.startsWith(location.origin + '/api/proxy?')) return url;
+        let b64;
+        try { b64 = btoa(url); } catch (_) { b64 = btoa(unescape(encodeURIComponent(url))); }
+        b64 = b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        return '/api/proxy?u=' + b64;
+      }
+
+      function isDirectVideo(url) {
+        return /\.(mp4|mkv|m3u8|webm|mov|avi|ts)(\?|#|$)/i.test(url);
+      }
+
+      // For iframe-based stream providers, fetch the page HTML and extract
+      // the actual video source URL.
+      const IFRAME_HOSTS = /hubstream\.art|hdstream4u\.com|new3\.hdhub4u\.cl|hdhub4us\.ai\.in|hdhub4u\.skin/i;
+      function isIframeStream(url) {
+        return IFRAME_HOSTS.test(url);
+      }
+
+      async function extractVideoFromIframePage(url) {
+        try {
+          const r = await fetch(proxied(url), { signal: AbortSignal.timeout(12000) });
+          if (!r.ok) return null;
+          const ct = r.headers.get('content-type') || '';
+          if (/video\//i.test(ct)) return url; // already direct
+          const html = await r.text();
+          // Look for direct video URLs in the HTML
+          const re = /https?:\/\/[^\s"'<>\)]+\.(?:mp4|mkv|webm|m3u8)(?:\?[^\s"'<>\)]*)?/gi;
+          const matches = html.match(re) || [];
+          if (matches.length === 0) return null;
+          // De-dup + prefer mp4
+          const uniq = [...new Set(matches)];
+          uniq.sort((a, b) => {
+            const ra = ({ mp4: 0, m3u8: 1, webm: 2, mkv: 3 })[(a.match(/\.(mp4|mkv|m3u8|webm)/i) || [])[1]?.toLowerCase()] ?? 9;
+            const rb = ({ mp4: 0, m3u8: 1, webm: 2, mkv: 3 })[(b.match(/\.(mp4|mkv|m3u8|webm)/i) || [])[1]?.toLowerCase()] ?? 9;
+            return ra - rb;
+          });
+          return uniq[0];
+        } catch (e) {
+          console.warn('extractVideoFromIframePage failed:', e);
+          return null;
+        }
+      }
+
+      function showError(msg, linkUrl) {
+        loading.classList.add('hidden');
+        errorMsg.textContent = msg;
+        if (linkUrl) {
+          errorLink.href = linkUrl;
+          errorLink.textContent = 'Open source page →';
+          errorLink.style.display = 'block';
+        } else {
+          errorLink.style.display = 'none';
+        }
+        errorOverlay.classList.add('show');
+      }
+
+      function hideLoading() {
+        loading.classList.add('hidden');
+      }
+
+      function playVideo(url) {
+        currentStreamUrl = url;
+        const playableUrl = proxied(url);
+        const isHls = /\.m3u8(\?|$)/i.test(url);
+        const isMkv = /\.(mkv)(\?|$)/i.test(url);
+
+        // Clean up previous
+        if (hls) { hls.destroy(); hls = null; }
+        video.removeAttribute('src');
+        video.load();
+
+        loadingText.textContent = 'Buffering…';
+
+        if (isHls) {
+          if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = playableUrl;
+            video.play().catch(() => showError('Could not start autoplay. Tap play to start.'));
+          } else if (window.Hls && Hls.isSupported()) {
+            hls = new Hls({ enableWorker: true, lowLatencyMode: false, maxBufferLength: 30 });
+            hls.loadSource(playableUrl);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+              hideLoading();
+              video.play().catch(() => {});
+            });
+            hls.on(Hls.Events.ERROR, (_, data) => {
+              if (data.fatal) {
+                if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+                else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+                else { hls.destroy(); hls = null; showError('Stream unavailable. Try another quality or use VLC.'); }
+              }
+            });
+          } else {
+            showError('HLS not supported in this browser. Use VLC or another player.');
+          }
+        } else if (isMkv) {
+          // MKV — try native playback (Chrome/Firefox may not support HEVC)
+          video.src = playableUrl;
+          video.load();
+          const t = setTimeout(() => {
+            if (video.readyState === 0) {
+              showError('MKV format not directly playable in this browser (HEVC codec). Use VLC or MX Player for this quality.');
+            }
+          }, 5000);
+          video.addEventListener('loadeddata', () => { clearTimeout(t); hideLoading(); }, { once: true });
+          video.addEventListener('error', () => {
+            clearTimeout(t);
+            showError('MKV playback failed. Use VLC or MX Player for this quality.');
+          }, { once: true });
+          video.play().catch(() => {});
+        } else {
+          // MP4 / WebM / direct
+          video.src = playableUrl;
+          video.load();
+          video.addEventListener('loadeddata', () => hideLoading(), { once: true });
+          video.addEventListener('error', () => {
+            showError('Could not play this stream. Try another quality or use VLC.');
+          }, { once: true });
+          video.play().catch(() => {});
+        }
+      }
+
+      async function start() {
+        const streamUrl = decodeUrl(rawUrl);
+        if (!streamUrl) {
+          showError('Invalid stream URL.');
+          return;
+        }
+
+        loadingText.textContent = 'Resolving stream…';
+
+        try {
+          let playUrl = streamUrl;
+
+          // If it's an iframe stream provider, extract the actual video URL
+          if (isIframeStream(streamUrl) && !isDirectVideo(streamUrl)) {
+            loadingText.textContent = 'Extracting direct stream…';
+            const extracted = await extractVideoFromIframePage(streamUrl);
+            if (extracted) {
+              playUrl = extracted;
+            } else {
+              // Couldn't extract — show error with link to source page
+              showError('Could not extract direct video from this stream provider. Open the source page to play directly:', streamUrl);
+              return;
+            }
+          } else if (!isDirectVideo(streamUrl)) {
+            // Non-iframe, non-video URL — try /api/resolve
+            loadingText.textContent = 'Resolving download link…';
+            try {
+              const r = await fetch('/api/resolve?url=' + encodeURIComponent(streamUrl));
+              if (r.ok) {
+                const data = await r.json();
+                if (data.ok && data.urls && data.urls.length > 0) {
+                  playUrl = data.urls[0];
+                }
+              }
+            } catch {}
+            if (!isDirectVideo(playUrl)) {
+              showError('Could not find a direct video URL. Open the source page:', streamUrl);
+              return;
+            }
+          }
+
+          playVideo(playUrl);
+        } catch (e) {
+          showError('Error: ' + (e.message || 'Unknown error'));
+        }
+      }
+
+      // Controls
+      let controlsTimer = null;
+      function showControls() {
+        titleBar.classList.add('show');
+        closeBtn.style.opacity = '1';
+        clearTimeout(controlsTimer);
+        controlsTimer = setTimeout(() => {
+          titleBar.classList.remove('show');
+          closeBtn.style.opacity = '0.3';
+        }, 3000);
+      }
+      document.addEventListener('mousemove', showControls);
+      document.addEventListener('touchstart', showControls);
+      showControls();
+
+      // Close
+      function closePlayer() {
+        if (hls) { hls.destroy(); hls = null; }
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+        // Tell parent window to close the iframe
+        try { window.parent.postMessage({ type: 'skm-close-player' }, '*'); } catch {}
+      }
+      closeBtn.addEventListener('click', closePlayer);
+      retryBtn.addEventListener('click', () => {
+        errorOverlay.classList.remove('show');
+        loading.classList.remove('hidden');
+        start();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closePlayer();
+        if (e.key === 'f' || e.key === 'F') {
+          if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+          else document.exitFullscreen();
+        }
+        if (e.key === ' ') { e.preventDefault(); video.paused ? video.play() : video.pause(); }
+      });
+
+      // Listen for parent messages
+      window.addEventListener('message', (e) => {
+        if (e.data && e.data.type === 'skm-close-player') closePlayer();
+      });
+
+      start();
+    })();
+  </script>
+</body>
+</html>

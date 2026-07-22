@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#fb1114" />
+  <meta name="color-scheme" content="light dark" />
+  <title>SKMovies — Mini App</title>
+  <link rel="icon" href="/assets/favicon-32.webp" type="image/webp" />
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.webp" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="preconnect" href="https://mlsbd-image.com" crossorigin />
+  <link rel="preconnect" href="https://cdn.imgnest.io" crossorigin />
+  <link rel="stylesheet" href="/styles.css?v=3.3.8" />
+  <link rel="stylesheet" href="/webapp/webapp.css?v=3.3.8" />
+  <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
+</head>
+<body>
+  <!-- Splash -->
+  <div class="splash" id="splash">
+    <img src="/assets/logo-512.webp" alt="SKMovies" width="120" height="120" />
+    <div class="splash__title">SKMovies</div>
+    <div class="splash__sub">Premium v3.3.8</div>
+    <div class="splash__spinner"></div>
+  </div>
+
+  <a href="#main" class="skip-link">Skip to content</a>
+
+  <!-- Header (pixel-perfect clone of mlsbd.co) -->
+  <header class="container-fluid">
+    <div class="bar social-bar night-mode">
+      <div>
+        Dark UI:
+        <div class="toggleWrapper">
+          <input type="checkbox" class="dn" id="dn" />
+          <label for="dn" class="toggle" aria-label="Toggle dark mode">
+            <span class="toggle__handler">
+              <span class="crater crater--1"></span>
+              <span class="crater crater--2"></span>
+              <span class="crater crater--3"></span>
+            </span>
+            <span class="star star--1"></span>
+            <span class="star star--2"></span>
+            <span class="star star--3"></span>
+          </label>
+        </div>
+      </div>
+      <div class="filterWrapper" id="filter18Wrapper">
+        <input type="checkbox" name="filter" id="filter18" />
+        <span class="filterButton">Filter 18+ : <span id="filter18State">No</span></span>
+      </div>
+    </div>
+
+    <div class="site-info">
+      <div class="site-logo">
+        <a href="/" class="custom-logo-link" rel="home">
+          <img width="484" height="130" src="/assets/logo-full.webp" class="custom-logo" alt="SKMovies" decoding="async" fetchpriority="high" />
+        </a>
+      </div>
+      <div class="notice-board">
+        <div class="upcoming-movies notice-marquee" id="noticeMarquee"><span class="notice-marquee__track">Welcome to SKMovies Mini App</span></div>
+      </div>
+    </div>
+
+    <div class="nav-bar" id="navBar">
+      <div class="nav-bar__inner">
+        <form class="search-form" id="searchForm" role="search" autocomplete="off">
+          <i class="ab ab-search"></i>
+          <input id="searchInput" class="search-input" type="search" placeholder="Search movies…" aria-label="Search movies" inputmode="search" enterkeyhint="search" maxlength="120" />
+          <button type="button" class="search-clear" id="searchClear" aria-label="Clear" hidden><i class="ab ab-x"></i></button>
+        </form>
+        <nav class="nav-menu" id="navMenu">
+          <a href="/" class="nav-link is-active" data-view="latest">Home</a>
+          <a href="/?view=trending" class="nav-link" data-view="trending">Trending</a>
+          <a href="/?view=favs" class="nav-link" data-view="favs">⭐</a>
+          <a href="/?view=history" class="nav-link" data-view="history">🕐</a>
+          <a href="/?view=dashboard" class="nav-link" data-view="dashboard">📊</a>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" class="container">
+    <section class="featured-section" id="featuredSection">
+      <div class="section-title"><span>Trending</span></div>
+      <div class="featured-slider" id="featuredSlider">
+        <button class="prev" id="featuredPrev" aria-label="Previous"><i class="ab ab-chevron-left"></i></button>
+        <button class="next" id="featuredNext" aria-label="Next"><i class="ab ab-chevron-right"></i></button>
+        <div class="slider" id="featuredSlides"></div>
+      </div>
+    </section>
+
+    <section id="dashboard" class="dashboard" hidden>
+      <div class="section-title"><span>📊 Dashboard</span></div>
+      <div class="dash-stats" id="dashStats"></div>
+      <div class="dash-section">
+        <h3>🔗 Extracted URLs</h3>
+        <div class="url-list" id="dashUrls"><div class="dash-empty">No URLs yet.</div></div>
+      </div>
+      <div class="dash-section">
+        <h3>⭐ Watchlist</h3>
+        <div class="dash-list" id="dashFavs"><div class="dash-empty">Empty.</div></div>
+      </div>
+      <div class="dash-section">
+        <h3>🕐 History</h3>
+        <div class="dash-list" id="dashHistory"><div class="dash-empty">Empty.</div></div>
+      </div>
+      <div class="dash-section">
+        <h3>⚙️ Actions</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="view-more-btn" id="dashClearHistory">Clear history</button>
+          <button class="view-more-btn" id="dashClearFavs">Clear watchlist</button>
+          <button class="view-more-btn" id="dashClearUrls">Clear URLs</button>
+          <button class="view-more-btn" id="dashExport">Export</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="movieSection">
+      <div class="section-head">
+        <div class="section-title"><span id="sectionTitle">Latest Movies</span></div>
+      </div>
+      <div class="filters" id="filters" role="toolbar" aria-label="Filters">
+        <div class="filters__scroll" id="filtersScroll"></div>
+      </div>
+      <div class="movies-grid" id="moviesGrid" aria-live="polite" aria-busy="true"></div>
+      <div class="skeleton-grid" id="skeletonGrid" hidden></div>
+      <div class="view-more" id="loadMore" hidden>
+        <button id="loadMoreBtn">Load More</button>
+      </div>
+      <div class="empty" id="empty" hidden>
+        <img src="/assets/empty.webp" alt="" width="160" height="120" loading="lazy" decoding="async" />
+        <h3>No movies found</h3>
+        <p>Try a different search or filter.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Movie Modal -->
+  <div class="modal" id="modal" hidden aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal__backdrop" data-close></div>
+    <article class="modal__card" id="modalCard">
+      <button class="modal__close" data-close aria-label="Close"><i class="ab ab-x"></i></button>
+      <div class="modal__body" id="modalBody"><div class="skeleton-modal"></div></div>
+    </article>
+  </div>
+
+  <!-- Player Sheet -->
+  <div class="sheet" id="sheet" hidden aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="sheet__backdrop" data-close-sheet></div>
+    <div class="sheet__panel">
+      <div class="sheet__handle"></div>
+      <h3 class="sheet__title" id="sheetTitle">Open with…</h3>
+      <p class="sheet__hint" id="sheetHint"></p>
+      <div class="sheet__grid" id="sheetGrid"></div>
+      <div class="sheet__url">
+        <input id="sheetUrl" type="text" readonly aria-label="Direct video URL" />
+        <button class="view-more-btn" id="sheetCopy">Copy</button>
+      </div>
+      <p class="sheet__tip" id="sheetTip"></p>
+    </div>
+  </div>
+
+  <!-- Settings Sheet (TG-specific) -->
+  <div class="sheet" id="settingsSheet" hidden aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="sheet__backdrop" data-close-settings></div>
+    <div class="sheet__panel">
+      <div class="sheet__handle"></div>
+      <h3 class="sheet__title">⚙️ Settings</h3>
+      <div class="settings-list" id="settingsList"></div>
+      <button class="view-more-btn" data-close-settings>Done</button>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="container-fluid">
+    <div class="footer-top">SKMovies — The Largest Movie Link Store</div>
+    <div class="footer-bottom">
+      <div class="footer-text container">
+        <p>Welcome to SKMovies. Enjoy your movies ad-free.</p>
+        <p class="copyright">Copyright &copy; 2016 - 2026 SKMovies. All Rights Reserved.</p>
+      </div>
+      <span class="mlsbd">SKMovies</span>
+    </div>
+  </footer>
+
+  <a href="#" id="go-top" class="go-top" aria-label="Go to top"><i class="ab ab-chevron-up"></i></a>
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="/app.js?v=3.3.8" defer></script>
+  <script src="/webapp/app.js?v=3.3.8" defer></script>
+</body>
+</html>

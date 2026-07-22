@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d0f14" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="description" content="SKMovies — The Largest Movie Link Store of Bangladesh. Download any movies or series for free and enjoy your time!" />
+  <meta name="keywords" content="movies,film,new movies,skmovies,bangladesh,bengali movies,bollywood,hollywood,south indian,download,watch online" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="SKMovies" />
+  <meta property="og:title" content="SKMovies — The Largest Movie Link Store of Bangladesh" />
+  <meta property="og:description" content="One place you will ever need for your favorite movies and series." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="https://skmovies-premium.pages.dev/assets/og-image.webp" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://skmovies-premium.pages.dev/assets/og-image.webp" />
+  <link rel="icon" href="/assets/favicon-32.webp" type="image/webp" />
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.webp" />
+  <link rel="manifest" href="/manifest.json" />
+  <!-- [PERF] Preconnect to all upstream image hosts so the first /api/img
+       fetch doesn't pay DNS+TLS round-trip latency. -->
+  <link rel="preconnect" href="https://mlsbd-image.com" crossorigin />
+  <link rel="preconnect" href="https://cdn.imgnest.io" crossorigin />
+  <link rel="preconnect" href="https://m.media-amazon.com" crossorigin />
+  <link rel="preconnect" href="https://image.tmdb.org" crossorigin />
+  <link rel="dns-prefetch" href="https://mlsbd.co" />
+  <link rel="preload" href="/styles.css?v=3.5.0" as="style" />
+  <link rel="preload" href="/app.js?v=3.5.0" as="script" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Exo:wght@600;700;800;900&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css?v=3.5.0" />
+  <title>SKMovies &raquo; The Largest Movie Link Store of Bangladesh</title>
+  <!-- [A11Y] Skip-link + critical no-JS fallback so the page is usable even if JS fails. -->
+  <noscript><style>
+    .modal, .sheet, .player-modal { display: none !important; }
+    body { overflow: auto !important; position: static !important; }
+    .movies-grid { min-height: 60vh; }
+    .notice-strip::after {
+      content: '⚠ JavaScript is required to browse movies on SKMovies.';
+      display: block; padding: 12px; text-align: center; color: #fff; font-size: 13px;
+    }
+  </style></noscript>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest" crossorigin="anonymous"></script>
+</head>
+<body>
+  <!-- SVG sprite -->
+  <svg style="display:none" aria-hidden="true">
+    <symbol id="i-search" viewBox="0 0 24 24"><path fill="currentColor" d="M9.5 3a6.5 6.5 0 0 1 4.94 10.69l5.43 5.44-1.06 1.06-5.44-5.43A6.5 6.5 0 1 1 9.5 3m0 1.5a5 5 0 1 0 0 10 5 5 0 0 0 0-10"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path fill="currentColor" d="M18.3 5.71 12 12l6.3 6.29-1.42 1.42L12 14.83l-6.29 6.3-1.42-1.42L10.59 12 4.29 5.71 5.71 4.29 12 10.59l6.29-6.3z"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path fill="currentColor" d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path fill="currentColor" d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path fill="currentColor" d="M7.41 15.41 12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></symbol>
+  </svg>
+
+  <a href="#main" class="skip-link">Skip to content</a>
+
+  <!-- ─── SINGLE COMBINED HEADER ─────────────────────────────────── -->
+  <header class="site-header" id="siteHeader">
+    <!-- Header brand bar: logo + controls -->
+    <div class="header-brand">
+      <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation" aria-expanded="false">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+      </button>
+      <a href="/" class="header-logo" rel="home">
+        <span class="logo-text"><span class="logo-accent">SK</span>Movies</span>
+      </a>
+      <div class="header-controls">
+        <!-- Dark toggle -->
+        <div class="toggle-wrap" title="Toggle dark mode">
+          <span class="toggle-icon">🌙</span>
+          <div class="toggleWrapper">
+            <input type="checkbox" class="dn" id="dn" />
+            <label for="dn" class="toggle" aria-label="Toggle dark mode">
+              <span class="toggle__handler">
+                <span class="crater crater--1"></span>
+                <span class="crater crater--2"></span>
+                <span class="crater crater--3"></span>
+              </span>
+              <span class="star star--1"></span>
+              <span class="star star--2"></span>
+              <span class="star star--3"></span>
+            </label>
+          </div>
+        </div>
+        <!-- 18+ filter -->
+        <div class="filterWrapper" id="filter18Wrapper">
+          <input type="checkbox" name="filter" id="filter18" />
+          <span class="filterButton">18+<span id="filter18State">: Off</span></span>
+        </div>
+        <!-- FDM Source toggle -->
+        <div class="source-toggle-wrapper">
+          <button class="source-toggle" id="sourceToggle">
+            <span class="source-toggle__indicator" id="sourceIndicator"></span>
+            <span class="source-toggle__label" id="sourceLabel">MLSBD</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notice strip -->
+    <div class="notice-strip">
+      <span class="notice-strip-label">Upcoming</span>
+      <div class="notice-marquee" role="status" aria-live="polite">
+        <span class="notice-marquee__track" id="noticeMarquee">Welcome to SKMovies — ad-free premium movie streamer</span>
+      </div>
+    </div>
+
+    <!-- Sticky search bar -->
+    <div class="nav-bar" id="navBar">
+      <div class="nav-bar__inner container">
+        <form class="search-form" id="searchForm" role="search" autocomplete="off">
+          <svg class="ab" width="17" height="17"><use href="#i-search"/></svg>
+          <input id="searchInput" class="search-input" type="search" placeholder="Search movies, series, actors…" aria-label="Search" inputmode="search" enterkeyhint="search" maxlength="120" />
+          <button type="button" class="search-clear" id="searchClear" aria-label="Clear" hidden>
+            <svg class="ab" width="15" height="15"><use href="#i-x"/></svg>
+          </button>
+        </form>
+        <!-- Desktop nav links -->
+        <nav class="nav-menu" id="navMenu" aria-label="Main navigation">
+          <a href="/" class="nav-link is-active" data-view="latest">Home</a>
+          <a href="#" class="nav-link" id="navCategories">📁 Categories</a>
+          <a href="/?view=trending" class="nav-link" data-view="trending">🔥 Trending</a>
+          <a href="/?view=south" class="nav-link" data-view="south">🎬 South Indian</a>
+          <a href="/?view=south-hindi" class="nav-link" data-view="south-hindi">🎭 South Hindi</a>
+          <a href="/?view=favs" class="nav-link" data-view="favs">⭐ Watchlist</a>
+          <a href="/?view=history" class="nav-link" data-view="history">🕐 History</a>
+          <a href="/?view=dashboard" class="nav-link" data-view="dashboard">📊</a>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <!-- ─── Main ────────────────────────────────────────────────────── -->
+  <main id="main" class="container">
+
+    <!-- Featured slider -->
+    <section class="featured-section" id="featuredSection">
+      <div class="section-title"><span id="featuredTitle">🔥 Trending Now</span></div>
+      <div class="featured-slider" id="featuredSlider">
+        <button class="prev" id="featuredPrev" aria-label="Previous"><svg width="20" height="20"><use href="#i-left"/></svg></button>
+        <button class="next" id="featuredNext" aria-label="Next"><svg width="20" height="20"><use href="#i-right"/></svg></button>
+        <div class="slider" id="featuredSlides"></div>
+      </div>
+    </section>
+
+    <!-- Dashboard -->
+    <section id="dashboard" class="dashboard" hidden>
+      <div class="section-title"><span>📊 Dashboard</span></div>
+      <div class="dash-stats" id="dashStats"></div>
+      <div class="dash-section">
+        <h3>🔗 Extracted URLs</h3>
+        <div class="url-list" id="dashUrls"><div class="dash-empty">No URLs yet.</div></div>
+      </div>
+      <div class="dash-section">
+        <h3>⭐ Watchlist</h3>
+        <div class="dash-list" id="dashFavs"><div class="dash-empty">Watchlist is empty.</div></div>
+      </div>
+      <div class="dash-section">
+        <h3>🕐 Watch History</h3>
+        <div class="dash-list" id="dashHistory"><div class="dash-empty">No history yet.</div></div>
+      </div>
+      <div class="dash-section">
+        <h3>⚙️ Actions</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;padding:14px 16px">
+          <button class="view-more-btn" id="dashClearHistory">Clear history</button>
+          <button class="view-more-btn" id="dashClearFavs">Clear watchlist</button>
+          <button class="view-more-btn" id="dashClearUrls">Clear URLs</button>
+          <button class="view-more-btn" id="dashExport">Export data</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Movies list -->
+    <section id="movieSection">
+      <div class="section-head">
+        <div class="section-title"><span id="sectionTitle">Latest Movies</span></div>
+      </div>
+      <div class="filters" id="filters" role="toolbar">
+        <div class="filters__scroll" id="filtersScroll"></div>
+      </div>
+      <div class="movies-grid" id="moviesGrid" aria-live="polite" aria-busy="true"></div>
+      <div class="skeleton-grid" id="skeletonGrid" hidden></div>
+      <div class="view-more" id="loadMore" hidden>
+        <button id="loadMoreBtn">Load More</button>
+      </div>
+      <div class="empty" id="empty" hidden>
+        <img src="/assets/empty.webp" alt="" width="160" height="120" loading="lazy" decoding="async" />
+        <h3>No movies found</h3>
+        <p>Try a different search or category.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- ─── Movie Modal ──────────────────────────────────────────────── -->
+  <div class="modal" id="modal" hidden style="display:none" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal__backdrop" data-close></div>
+    <article class="modal__card" id="modalCard">
+      <button class="modal__close" id="modalClose" data-close aria-label="Go back">
+        <svg width="22" height="22"><use href="#i-left"/></svg>
+      </button>
+      <div class="modal__body" id="modalBody"><div class="skeleton-modal" style="margin:80px 20px 20px"></div></div>
+    </article>
+  </div>
+
+  <!-- ─── Player Sheet ─────────────────────────────────────────────── -->
+  <div class="sheet" id="sheet" hidden style="display:none" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="sheet__backdrop" data-close-sheet></div>
+    <div class="sheet__panel">
+      <div class="sheet__handle"></div>
+      
+      <div class="sheet__header">
+        <button class="sheet__close" data-close-sheet aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <h3 class="sheet__title" id="sheetTitle">Open with…</h3>
+        <p class="sheet__hint" id="sheetHint"></p>
+      </div>
+
+      <!-- Actions -->
+      <div class="sheet__grid" id="sheetGrid"></div>
+
+      <!-- URL Copy Section -->
+      <div class="sheet__url-box">
+        <span class="sheet__url-label">Direct Link</span>
+        <div class="sheet__url">
+          <input type="text" id="sheetUrl" readonly aria-label="Direct video URL">
+          <button class="sheet__url-copy" id="sheetCopy">Copy</button>
+        </div>
+      </div>
+      
+      <p class="sheet__tip" id="sheetTip" style="margin-top: 14px; font-size: 11px; text-align: center; color: var(--text-muted);"></p>
+    </div>
+  </div>
+
+  <!-- ─── Categories Sheet ─────────────────────────────────────────── -->
+  <div class="sheet" id="categoriesSheet" hidden style="display:none" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="sheet__backdrop" data-close-cats></div>
+    <div class="sheet__panel" style="max-width: 580px;">
+      <div class="sheet__handle"></div>
+      <div class="sheet__header">
+        <button class="sheet__close" data-close-cats aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <h3 class="sheet__title">All Categories</h3>
+        <p class="sheet__hint">Select a category to browse movie listings</p>
+      </div>
+      <div class="sheet__grid" style="grid-template-columns: repeat(2, 1fr); max-height: 55vh; overflow-y: auto; gap: 8px; padding-bottom: 12px;" id="categoriesGrid">
+        <!-- populated dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Sources Sheet ───────────────────────────────────────────── -->
+  <div class="sheet" id="sourcesSheet" hidden style="display:none" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="sheet__backdrop" data-close-sources></div>
+    <div class="sheet__panel" style="max-width: 580px;">
+      <div class="sheet__handle"></div>
+      <div class="sheet__header">
+        <button class="sheet__close" data-close-sources aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <h3 class="sheet__title">🌐 Select Source Provider</h3>
+        <p class="sheet__hint">Choose a source to switch movie catalog & download links</p>
+      </div>
+      <div class="sheet__grid" style="grid-template-columns: 1fr; max-height: 55vh; overflow-y: auto; gap: 10px; padding-bottom: 12px;" id="sourcesGrid">
+        <button class="source-select-btn" data-source="mlsbd" style="padding:14px;border-radius:12px;border:1.5px solid var(--border-color);background:rgba(255,255,255,0.04);text-align:left;cursor:pointer;color:var(--text-main);display:flex;flex-direction:column;gap:4px;">
+          <div style="font-weight:700;font-size:15px;color:#60a5fa;display:flex;align-items:center;justify-content:space-between;">
+            <span>⭐ MLSBD (Main Link Store)</span>
+            <span class="chip" style="background:#2563eb;color:#fff;font-size:10px;">Primary</span>
+          </div>
+          <span style="font-size:12px;color:var(--text-muted);">Dual Audio, BD-IX, 1080p/720p/480p, MultiCloud, GDFlix, Telegram</span>
+        </button>
+        <button class="source-select-btn" data-source="fdm" style="padding:14px;border-radius:12px;border:1.5px solid var(--border-color);background:rgba(255,255,255,0.04);text-align:left;cursor:pointer;color:var(--text-main);display:flex;flex-direction:column;gap:4px;">
+          <div style="font-weight:700;font-size:15px;color:#34d399;display:flex;align-items:center;justify-content:space-between;">
+            <span>🚀 FreeDriveMovie</span>
+            <span class="chip" style="background:#059669;color:#fff;font-size:10px;">Fast Direct</span>
+          </div>
+          <span style="font-size:12px;color:var(--text-muted);">Direct Fast Links, 4K/1080p, HEVC, Dual Audio & Series</span>
+        </button>
+        <button class="source-select-btn" data-source="hdhub4u" style="padding:14px;border-radius:12px;border:1.5px solid var(--border-color);background:rgba(255,255,255,0.04);text-align:left;cursor:pointer;color:var(--text-main);display:flex;flex-direction:column;gap:4px;">
+          <div style="font-weight:700;font-size:15px;color:#f59e0b;display:flex;align-items:center;justify-content:space-between;">
+            <span>🎬 HDHub4u</span>
+            <span class="chip" style="background:#d97706;color:#fff;font-size:10px;">HDPlayer</span>
+          </div>
+          <span style="font-size:12px;color:var(--text-muted);">Bollywood, South Hindi Dubbed, Hollywood Dual Audio & Stream Player</span>
+        </button>
+        <button class="source-select-btn" data-source="moviebox" style="padding:14px;border-radius:12px;border:1.5px solid var(--border-color);background:rgba(255,255,255,0.04);text-align:left;cursor:pointer;color:var(--text-main);display:flex;flex-direction:column;gap:4px;">
+          <div style="font-weight:700;font-size:15px;color:#ec4899;display:flex;align-items:center;justify-content:space-between;">
+            <span>📱 MovieBox</span>
+            <span class="chip" style="background:#db2777;color:#fff;font-size:10px;">Catalog</span>
+          </div>
+          <span style="font-size:12px;color:var(--text-muted);">Trending Movies, Web Series, Anime & Multi-platform Catalog</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Footer ───────────────────────────────────────────────────── -->
+  <footer class="container-fluid">
+    <div class="footer-top">SKMovies — The Largest Movie Link Store of Bangladesh</div>
+    <div class="footer-bottom">
+      <div class="footer-text container">
+        <p>Welcome to SKMovies. Enjoy your movies totally free.</p>
+        <div class="footer-links">
+          <ul class="menu">
+            <li><a href="/">Home</a></li>
+            <li><a href="/?view=trending">Trending</a></li>
+            <li><a href="/?view=south">South Indian</a></li>
+            <li><a href="/?view=south-hindi">South Hindi</a></li>
+            <li><a href="/?view=favs">Watchlist</a></li>
+            <li><a href="/?view=dashboard">Dashboard</a></li>
+          </ul>
+        </div>
+        <p class="copyright">Copyright &copy; 2016 - 2026 SKMovies. All Rights Reserved.</p>
+      </div>
+      <span class="mlsbd"><span style="color:#fb1114">SK</span>Movies</span>
+    </div>
+  </footer>
+
+  <!-- Web Video Player Modal -->
+  <div class="player-modal" id="playerModal" hidden aria-hidden="true" role="dialog" aria-modal="true">
+    <!-- Always-visible close button -->
+    <button class="player-close-fab" id="playerCloseFab" aria-label="Close player" title="Close (Esc)">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <line x1="18" y1="6" x2="6" y2="18"/>
+        <line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+    <div class="player-modal__backdrop" data-close-player></div>
+    <div class="player-container" id="playerContainer">
+      <!-- Video element -->
+      <video id="webVideoPlayer" class="web-video-player" controls preload="metadata">
+        Your browser does not support video playback.
+      </video>
+      
+      <!-- Custom controls overlay -->
+      <div class="player-controls" id="playerControls">
+        <!-- Top bar -->
+        <div class="player-top-bar">
+          <div class="player-title" id="playerTitle">Movie Title</div>
+          <div class="player-top-actions">
+            <!-- Rotate button -->
+            <button class="player-btn" id="rotateBtn" title="Rotate (R)" aria-label="Rotate">
+              <svg viewBox="0 0 24 24"><path fill="currentColor" d="M16.48 2.52c3.27 1.55 5.61 4.72 5.97 8.48h1.5C23.44 4.84 18.29 0 12 0l-.66.03 3.81 3.81 1.33-1.32zm-6.25-.77c-.59-.59-1.54-.59-2.12 0L1.75 8.11c-.59.59-.59 1.54 0 2.12l12.02 12.02c.59.59 1.54.59 2.12 0l6.36-6.36c.59-.59.59-1.54 0-2.12L10.23 1.75zm4.6 19.44L2.81 9.17l6.36-6.36 12.02 12.02-6.36 6.36zm-7.73.29C4.19 19.93 1.85 16.76 1.5 13H0C.56 19.16 5.71 24 12 24l.66-.03-3.81-3.81-1.34 1.32z"/></svg>
+            </button>
+            <!-- Stretch/Fit button -->
+            <button class="player-btn" id="stretchBtn" title="Stretch (S)" aria-label="Stretch">
+              <svg viewBox="0 0 24 24"><path fill="currentColor" d="M3 5v4h2V5h4V3H5c-1.1 0-2 .9-2 2zm2 10H3v4c0 1.1.9 2 2 2h4v-2H5v-4zm14 4h-4v2h4c1.1 0 2-.9 2-2v-4h-2v4zm0-14h-4v2h4v4h2V5c0-1.1-.9-2-2-2z"/></svg>
+            </button>
+            <!-- Fullscreen button -->
+            <button class="player-btn" id="fullscreenBtn" title="Fullscreen (F)" aria-label="Fullscreen">
+              <svg viewBox="0 0 24 24" id="fsIcon"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+            </button>
+            <!-- Close -->
+            <button class="player-btn player-btn--close" data-close-player title="Close" aria-label="Close">
+              <svg viewBox="0 0 24 24"><path fill="currentColor" d="M18.3 5.71 12 12l6.3 6.29-1.42 1.42L12 14.83l-6.29 6.3-1.42-1.42L10.59 12 4.29 5.71 5.71 4.29 12 10.59l6.29-6.3z"/></svg>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Bottom bar -->
+        <div class="player-bottom-bar">
+          <!-- Seek bar -->
+          <div class="player-seek-bar" id="seekBar">
+            <div class="player-seek-buffer" id="seekBuffer"></div>
+            <div class="player-seek-progress" id="seekProgress"></div>
+            <div class="player-seek-handle" id="seekHandle"></div>
+          </div>
+          <!-- Time + controls -->
+          <div class="player-time-bar">
+            <button class="player-btn" id="playPauseBtn" aria-label="Play/Pause">
+              <svg viewBox="0 0 24 24" id="playIcon"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+              <svg viewBox="0 0 24 24" id="pauseIcon" hidden><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            </button>
+            <span class="player-time" id="currentTime">0:00</span>
+            <span class="player-time-sep">/</span>
+            <span class="player-time" id="duration">0:00</span>
+            <div class="player-spacer"></div>
+            <!-- Speed control -->
+            <button class="player-btn player-speed" id="speedBtn" title="Speed">1x</button>
+            <!-- Volume -->
+            <div class="player-volume">
+              <button class="player-btn" id="muteBtn" aria-label="Mute">
+                <svg viewBox="0 0 24 24"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+              </button>
+              <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="1" class="player-volume-slider">
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Speed menu -->
+      <div class="speed-menu" id="speedMenu" hidden>
+        <button data-speed="0.5">0.5x</button>
+        <button data-speed="0.75">0.75x</button>
+        <button data-speed="1" class="is-active">1x (Normal)</button>
+        <button data-speed="1.25">1.25x</button>
+        <button data-speed="1.5">1.5x</button>
+        <button data-speed="2">2x</button>
+      </div>
+    </div>
+  </div>
+
+  <a href="#" id="go-top" aria-label="Go to top"><svg width="18" height="18"><use href="#i-up"/></svg></a>
+  <div class="toast" id="toast" hidden></div>
+  <script src="/app.js?v=3.5.0" defer></script>
+</body>
+</html>

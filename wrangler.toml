@@ -1,0 +1,29 @@
+# SKMovies — Cloudflare Pages config
+name = "skmovies-premium"
+compatibility_date = "2024-10-01"
+pages_build_output_dir = "public"
+
+# Deploy with: wrangler pages deploy public --project-name=skmovies-premium
+
+# HDHub Main scraper cache
+[[kv_namespaces]]
+binding = "SKMOVIES_KV"
+id = "054063fc418f417ab43e054269b4084f"
+
+
+# HDHub4u cache namespace (used by /api/hdhub4u/* endpoints)
+[[kv_namespaces]]
+binding = "HDHUB4U_CACHE"
+id = "898f65f8832b4794aa8ff39f90fa3288"
+
+# v3.5.0 Mega Cache
+[[kv_namespaces]]
+binding = "SKM_CACHE"
+id = "ca6887e933bb40399c72042c57cc916f"
+
+[vars]
+ENV = "production"
+APP_VERSION = "3.5.0"
+PROXY_WORKER_URL = "https://skmovies-proxy.krx18bott.workers.dev"
+SKM_CACHE_REPO = "khadimsorder1-max/skmovies-cache"
+# HDHUB4U_FORCE_HOST = "https://new3.hdhub4u.cl/"  # optional pin; leave empty to auto-resolve

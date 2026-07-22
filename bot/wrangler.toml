@@ -1,0 +1,15 @@
+# SKMovies Telegram Bot — Cloudflare Worker config
+name = "skmovies-bot"
+main = "src/index.js"
+compatibility_date = "2024-10-01"
+workers_dev = true
+
+# Secrets (set via: wrangler secret put <NAME>):
+#   BOT_TOKEN — from @BotFather
+#   WEBHOOK_SECRET — optional, for webhook verification
+
+[vars]
+ENV = "production"
+
+[observability]
+enabled = true

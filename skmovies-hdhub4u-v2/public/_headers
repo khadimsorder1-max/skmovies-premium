@@ -1,0 +1,17 @@
+/* _headers — Cloudflare Pages security headers */
+/*
+  /api/hdhub4u/*
+    Access-Control-Allow-Origin: *
+    Access-Control-Allow-Methods: GET, POST, OPTIONS
+    Access-Control-Allow-Headers: Content-Type, X-Requested-With
+    Cache-Control: public, max-age=60
+  /css/hdhub4u.css
+    Cache-Control: public, max-age=86400, immutable
+  /js/hdhub4u-*.js
+    Cache-Control: public, max-age=86400, immutable
+  /player.html
+    Cache-Control: public, max-age=3600
+  /watch.html
+    Cache-Control: public, max-age=3600
+  /hdhub4u.html
+    Cache-Control: public, max-age=60

@@ -1,0 +1,30 @@
+# HDHub4u — Cloudflare Pages _headers
+
+# API CORS
+/api/hdhub4u/*
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, POST, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, X-Requested-With
+  Access-Control-Max-Age: 86400
+  Cache-Control: public, max-age=60
+
+# Static assets (immutable)
+/hdhub4u/css/hdhub4u.css
+  Cache-Control: public, max-age=86400, immutable
+/hdhub4u/js/hdhub4u-*.js
+  Cache-Control: public, max-age=86400, immutable
+
+# HTML pages (short cache)
+/hdhub4u/player.html
+  Cache-Control: public, max-age=3600, must-revalidate
+/hdhub4u/watch.html
+  Cache-Control: public, max-age=3600, must-revalidate
+/hdhub4u/hdhub4u.html
+  Cache-Control: public, max-age=60, must-revalidate
+
+# Security headers for HTML pages
+/hdhub4u/*.html
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload

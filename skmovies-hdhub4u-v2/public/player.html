@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>HDHub4u+ Player — Ad-free</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+
+<!--
+  HDHub4u+ Ad-Free Player
+  -----------------------
+  Goals (per user requirements #2, #3):
+    - Plays direct stream URLs from ANY source, including .mkv files
+    - No ads (no pre-rolls, no popups, no overlays)
+    - Sandboxed: no external scripts that aren't on our allowlist
+    - Smooth UI: gestures, keyboard, picture-in-picture, fullscreen
+    - External player buttons: MX Player / VLC / KMPlayer / Open URL
+
+  Player stack (chosen for max format coverage on a static Pages site):
+    1. Native <video> first — fastest, best UX for .mp4/.webm
+    2. hls.js — for .m3u8 streams (Chrome / Firefox don't support HLS natively)
+    3. Clappr.js — fallback wrapper (handles .mkv via MediaSource + Matroska)
+    4. Iframe embed — last resort for player URLs that resist direct extraction
+
+  All player libraries are loaded from jsDelivr CDN — no build step.
+-->
+
+<!-- Player libraries — pinned versions for stability -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/video.js@8.10.0/dist/video-js.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@videojs/http-streaming@3.5.0/dist/vjs-http-streaming.min.css">
+<script src="https://cdn.jsdelivr.net/npm/video.js@8.10.0/dist/video.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/clappr@0.4.6/dist/clappr.min.js"></script>
+
+<style>
+  :root {
+    --hd-bg: #000;
+    --hd-text: #fff;
+    --hd-accent: #ffdd95;
+    --hd-bg-2: #1a1a1f;
+    --hd-bg-3: #2a2a34;
+    --hd-border: #2e2e38;
+    --hd-text-dim: #9a9aa4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--hd-bg);
+    color: var(--hd-text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  /* ---------- Layout ---------- */
+  .app {
+    display: flex; flex-direction: column;
+    height: 100vh; height: 100dvh;
+  }
+  .topbar {
+    flex-shrink: 0;
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px;
+    background: linear-gradient(to bottom, rgba(0,0,0,.95), rgba(0,0,0,.7));
+    border-bottom: 1px solid var(--hd-border);
+    z-index: 10;
+    transition: opacity .3s, transform .3s;
+  }
+  .topbar.hidden { opacity: 0; transform: translateY(-100%); pointer-events: none; }
+  .topbar .back-btn {
+    background: transparent; color: var(--hd-text);
+    border: 0; cursor: pointer;
+    font-size: 22px; line-height: 1;
+    padding: 6px 8px;
+    border-radius: 8px;
+    transition: background .15s;
+  }
+  .topbar .back-btn:hover { background: var(--hd-bg-3); }
+  .topbar .title {
+    flex: 1; min-width: 0;
+    font-size: 14px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .topbar .ext-group {
+    display: flex; gap: 4px; flex-wrap: nowrap;
+  }
+  .topbar a, .topbar button.ext {
+    background: var(--hd-bg-3); color: var(--hd-text);
+    border: 1px solid var(--hd-border);
+    padding: 6px 10px; border-radius: 14px;
+    font-size: 11px; font-weight: 600;
+    text-decoration: none; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .topbar a:hover, .topbar button.ext:hover {
+    background: var(--hd-bg-2); border-color: var(--hd-accent); color: var(--hd-accent);
+  }
+  .topbar a.mx { background: rgba(255,221,149,.1); color: var(--hd-accent); border-color: rgba(255,221,149,.4); }
+  .topbar a.mx:hover { background: rgba(255,221,149,.25); }
+  .topbar a.vlc { background: rgba(255,140,66,.1); color: #ff8c42; border-color: rgba(255,140,66,.4); }
+  .topbar a.vlc:hover { background: rgba(255,140,66,.25); }
+  .topbar a.km { background: rgba(93,173,226,.1); color: #5dade2; border-color: rgba(93,173,226,.4); }
+  .topbar a.km:hover { background: rgba(93,173,226,.25); }
+
+  /* ---------- Player stage ---------- */
+  .stage {
+    flex: 1;
+    position: relative;
+    background: #000;
+    overflow: hidden;
+    min-height: 0;
+  }
+  .video-js, .player-clappr {
+    width: 100% !important;
+    height: 100% !important;
+  }
+  .video-js { font-size: 13px; }
+  .video-js .vjs-big-play-button {
+    background: var(--hd-accent); color: #000;
+    border: 0; border-radius: 50%;
+    width: 72px; height: 72px;
+    line-height: 72px;
+    font-size: 32px;
+    top: 50%; left: 50%;
+    margin-top: -36px; margin-left: -36px;
+  }
+  .video-js .vjs-big-play-button:hover { background: #ffd166; }
+  .video-js .vjs-control-bar { background: rgba(0,0,0,.7); }
+
+  #player-clappr { width: 100%; height: 100%; }
+
+  /* Iframe fallback */
+  .stage iframe {
+    width: 100%; height: 100%; border: 0; display: block;
+    background: #000;
+  }
+
+  /* ---------- Error state ---------- */
+  .err-state {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 14px;
+    padding: 24px; text-align: center;
+    background: var(--hd-bg);
+    color: var(--hd-text-dim);
+  }
+  .err-state .icon { font-size: 56px; }
+  .err-state h2 { font-size: 18px; color: var(--hd-text); }
+  .err-state p { font-size: 13px; max-width: 480px; line-height: 1.5; }
+  .err-state code {
+    background: var(--hd-bg-3); padding: 2px 8px; border-radius: 4px;
+    color: var(--hd-accent); font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    word-break: break-all; display: inline-block; max-width: 100%;
+  }
+  .err-state .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .err-state .actions a, .err-state .actions button {
+    background: var(--hd-accent); color: #000;
+    border: 0; cursor: pointer;
+    padding: 10px 18px; border-radius: 22px;
+    font-size: 13px; font-weight: 600;
+    text-decoration: none;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .err-state .actions a.secondary, .err-state .actions button.secondary {
+    background: var(--hd-bg-3); color: var(--hd-text); border: 1px solid var(--hd-border);
+  }
+
+  /* ---------- Loading state ---------- */
+  .loading-state {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: #000; color: var(--hd-text-dim);
+    flex-direction: column; gap: 14px;
+  }
+  .spinner {
+    width: 38px; height: 38px;
+    border: 3px solid rgba(255,221,149,.15);
+    border-top-color: var(--hd-accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-state p { font-size: 13px; }
+
+  /* ---------- Mobile tweaks ---------- */
+  @media (max-width: 600px) {
+    .topbar { padding: 8px 10px; gap: 6px; flex-wrap: wrap; }
+    .topbar .title { font-size: 13px; flex-basis: 100%; order: -1; padding-bottom: 6px; }
+    .topbar a, .topbar button.ext { padding: 5px 8px; font-size: 10px; }
+    .video-js { font-size: 11px; }
+    .video-js .vjs-big-play-button { width: 56px; height: 56px; line-height: 56px; font-size: 24px; margin-top: -28px; margin-left: -28px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar" id="topbar">
+    <button class="back-btn" onclick="history.length > 1 ? history.back() : window.close()" aria-label="Back">←</button>
+    <span class="title" id="title">Loading…</span>
+    <div class="ext-group" id="ext-group">
+      <a class="mx"  id="mx-btn"  href="#" style="display:none" title="Open in MX Player (Android)">▶ MX</a>
+      <a class="vlc" id="vlc-btn" href="#" style="display:none" title="Open in VLC">▶ VLC</a>
+      <a class="km"  id="km-btn"  href="#" style="display:none" title="Open in KMPlayer (Android)">▶ KM</a>
+      <a id="ext-btn" href="#" target="_blank" rel="noopener noreferrer" style="display:none" title="Open raw URL">↗ Open</a>
+    </div>
+  </div>
+  <div class="stage" id="stage">
+    <div class="loading-state" id="loading">
+      <div class="spinner"></div>
+      <p>Resolving stream…</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   HDHub4u+ Ad-Free Player
+   ============================================================ */
+
+(function() {
+  'use strict';
+
+  const params = new URLSearchParams(location.search);
+  const url      = params.get('url') || '';
+  const source   = params.get('source') || 'unknown';
+  const title    = params.get('title') || 'HDHub4u Player';
+  const poster   = params.get('poster') || '';
+  const rawMode  = params.get('raw') === '1';   // skip /stream resolution
+  const mode     = params.get('mode') || 'auto'; // 'auto' | 'iframe' | 'native'
+
+  document.getElementById('title').textContent = decodeURIComponent(title);
+
+  // If the URL is a known player page (hubstream.art / hdstream4u.com),
+  // we MUST resolve it server-side first to get a direct playable URL.
+  const needsResolve = !rawMode && isPlayerPageUrl(url);
+
+  // ---------- Helpers ----------
+  function isPlayerPageUrl(u) {
+    return /hubstream\.art|hdstream4u\.com|hubdrive\.|hubcdn\.sbs|gadgetsweb\.xyz/i.test(u);
+  }
+  function isHls(u) { return /\.m3u8(\?|$)/i.test(u); }
+  function isMkv(u) { return /\.mkv(\?|$)/i.test(u); }
+  function isMp4(u) { return /\.mp4(\?|$)/i.test(u); }
+  function isWebm(u) { return /\.webm(\?|$)/i.test(u); }
+  function isGdrive(u) { return /drive\.google\.com|docs\.google\.com/i.test(u); }
+
+  function proxyUrl(u) {
+    if (!u) return '';
+    return '/api/hdhub4u/proxy?url=' + encodeURIComponent(u);
+  }
+
+  function showLoading(text) {
+    const stage = document.getElementById('stage');
+    stage.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>${text || 'Loading…'}</p></div>`;
+  }
+
+  function showError(title, details, actions) {
+    const stage = document.getElementById('stage');
+    const actionsHtml = (actions || []).map((a) => {
+      if (a.tag === 'a') return `<a href="${a.href}" target="_blank" rel="noopener">${a.label}</a>`;
+      return `<button onclick="${a.onclick}">${a.label}</button>`;
+    }).join('');
+    stage.innerHTML = `
+      <div class="err-state">
+        <div class="icon">⚠️</div>
+        <h2>${title}</h2>
+        ${details ? `<p>${details}</p>` : ''}
+        <div class="actions">${actionsHtml}</div>
+      </div>`;
+  }
+
+  function setExtBtn(id, href) {
+    const el = document.getElementById(id);
+    if (el && href) { el.href = href; el.style.display = 'inline-flex'; }
+  }
+
+  // ---------- Topbar auto-hide ----------
+  let topbarTimer;
+  function showTopbar() {
+    const bar = document.getElementById('topbar');
+    bar.classList.remove('hidden');
+    clearTimeout(topbarTimer);
+    topbarTimer = setTimeout(() => bar.classList.add('hidden'), 3500);
+  }
+  document.addEventListener('mousemove', showTopbar);
+  document.addEventListener('touchstart', showTopbar);
+  document.addEventListener('click', showTopbar);
+  showTopbar();
+
+  // ---------- Main entry ----------
+  async function main() {
+    if (!url) {
+      showError('No URL provided', 'Add ?url= to the query string.', []);
+      return;
+    }
+
+    // External-player buttons always point at the raw URL (even before resolution).
+    setExtBtn('ext-btn', url);
+
+    if (needsResolve) {
+      // Resolve server-side first.
+      try {
+        const r = await fetch('/api/hdhub4u/stream?url=' + encodeURIComponent(url) + '&mode=direct');
+        const j = await r.json();
+        if (j.error) throw new Error(j.message || 'Resolve failed');
+
+        // Wire external-player buttons from resolved info.
+        if (j.mxIntent)    setExtBtn('mx-btn',  j.mxIntent);
+        if (j.vlcUrl)      setExtBtn('vlc-btn', j.vlcUrl);
+        if (j.kmIntent)    setExtBtn('km-btn',  j.kmIntent);
+        if (j.externalUrl) setExtBtn('ext-btn', j.externalUrl);
+
+        const playable = j.directUrl || j.streamUrl || j.playableUrl;
+        if (playable) {
+          await loadPlayable(playable, j.source || source);
+        } else if (j.iframe) {
+          loadIframe(j.iframe);
+        } else {
+          throw new Error('No playable URL found');
+        }
+      } catch (e) {
+        showError('Could not resolve stream', e.message + ' — try the original player instead.', [
+          { tag: 'a', href: url, label: '↗ Open original' },
+        ]);
+      }
+    } else {
+      // Direct URL — wire external buttons and load directly.
+      wireExtBtnsForDirect(url);
+      await loadPlayable(url, source);
+    }
+  }
+
+  function wireExtBtnsForDirect(directUrl) {
+    // MX intent
+    try {
+      const u = new URL(directUrl);
+      const mx = 'intent://' + u.host + u.pathname + u.search +
+                 '#Intent;package=com.mxtech.videoplayer.ad;S.title=' +
+                 encodeURIComponent(decodeURIComponent(title)) + ';end';
+      setExtBtn('mx-btn', mx);
+    } catch (_) {}
+    // VLC
+    setExtBtn('vlc-btn', 'vlc://' + directUrl);
+    // KMPlayer
+    try {
+      const u = new URL(directUrl);
+      const km = 'intent://' + u.host + u.pathname + u.search +
+                 '#Intent;package=com.kmplayer;S.title=' +
+                 encodeURIComponent(decodeURIComponent(title)) + ';end';
+      setExtBtn('km-btn', km);
+    } catch (_) {}
+  }
+
+  // ---------- Load playable URL ----------
+  async function loadPlayable(playableUrl, srcLabel) {
+    // Decide whether to use native / hls.js / clappr / iframe.
+    if (isHls(playableUrl)) {
+      if (videojs.Vhs && videojs.Vhs.isSupported()) {
+        // Video.js with built-in VHS handles HLS on every browser.
+        loadVideojsHls(playableUrl);
+      } else if (Hls && Hls.isSupported()) {
+        // Standalone hls.js fallback.
+        loadHlsJs(playableUrl);
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // Safari native HLS.
+        loadNative(playableUrl);
+      } else {
+        showError('HLS not supported', 'Your browser cannot play HLS streams.', [
+          { tag: 'a', href: 'vlc://' + playableUrl, label: '▶ Open in VLC' },
+          { tag: 'a', href: playableUrl,            label: '↗ Open raw' },
+        ]);
+      }
+    } else if (isMp4(playableUrl) || isWebm(playableUrl)) {
+      loadNative(playableUrl);
+    } else if (isMkv(playableUrl)) {
+      // MKV needs Clappr (with Matroska demuxer) or direct fallback.
+      loadClapprMkv(playableUrl);
+    } else if (isGdrive(playableUrl)) {
+      // GDrive preview iframe.
+      const gdId = (playableUrl.match(/[-\w]{25,}/) || [])[0];
+      if (gdId) loadIframe('https://drive.google.com/file/d/' + gdId + '/preview');
+      else loadIframe(playableUrl);
+    } else {
+      // Unknown extension — try native first, fall back to iframe.
+      loadNative(playableUrl, /*fallbackToIframe=*/true);
+    }
+  }
+
+  // ---------- Player backends ----------
+
+  /** Load with native <video> element. */
+  function loadNative(videoUrl, fallbackToIframe) {
+    showLoading('Loading video…');
+    const stage = document.getElementById('stage');
+    stage.innerHTML = '';
+    const video = document.createElement('video');
+    video.controls = true;
+    video.playsInline = true;
+    video.preload = 'metadata';
+    video.setAttribute('playsinline', '');
+    video.setAttribute('webkit-playsinline', '');
+    if (poster) video.poster = poster;
+    video.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000;display:block';
+
+    // Route through our CORS proxy if the URL is cross-origin (most are).
+    const sameOrigin = videoUrl.startsWith(location.origin);
+    const finalSrc = sameOrigin ? videoUrl : proxyUrl(videoUrl);
+    video.src = finalSrc;
+
+    video.addEventListener('loadedmetadata', () => {
+      try { video.play().catch(() => {}); } catch (_) {}
+    });
+    video.addEventListener('error', () => {
+      if (fallbackToIframe) {
+        console.warn('Native <video> failed, falling back to iframe', video.error);
+        loadIframe(videoUrl);
+      } else {
+        showError('Playback error', 'This format may not be supported by your browser. Try an external player.', [
+          { tag: 'a', href: 'vlc://' + videoUrl, label: '▶ Open in VLC' },
+          { tag: 'a', href: videoUrl, label: '↗ Open raw' },
+        ]);
+      }
+    });
+
+    stage.appendChild(video);
+    window._currentVideo = video;
+  }
+
+  /** Load with Video.js + built-in VHS (HTTP Streaming) for HLS. */
+  function loadVideojsHls(hlsUrl) {
+    showLoading('Loading HLS…');
+    const stage = document.getElementById('stage');
+    stage.innerHTML = '';
+    const videoEl = document.createElement('video');
+    videoEl.className = 'video-js vjs-default-skin vjs-big-play-centered';
+    videoEl.controls = true;
+    videoEl.setAttribute('playsinline', '');
+    if (poster) videoEl.poster = poster;
+    stage.appendChild(videoEl);
+
+    const player = videojs(videoEl, {
+      fluid: true,
+      responsive: true,
+      preload: 'metadata',
+      playbackRates: [0.5, 0.75, 1, 1.25, 1.5, 2],
+      html5: {
+        vhs: {
+          overrideNative: true,
+          enableLowInitialPlaylist: true,
+        },
+      },
+    });
+    // Use proxy if cross-origin
+    const sameOrigin = hlsUrl.startsWith(location.origin);
+    const finalSrc = sameOrigin ? hlsUrl : proxyUrl(hlsUrl);
+    player.src({ src: finalSrc, type: 'application/x-mpegURL' });
+    player.ready(() => {
+      try { player.play().catch(() => {}); } catch (_) {}
+    });
+    player.on('error', () => {
+      showError('HLS playback failed', 'The stream may be offline or geo-blocked. Try an external player.', [
+        { tag: 'a', href: 'vlc://' + hlsUrl, label: '▶ Open in VLC' },
+        { tag: 'a', href: hlsUrl,            label: '↗ Open raw' },
+      ]);
+    });
+    window._vjsPlayer = player;
+  }
+
+  /** Load with standalone hls.js + native <video>. */
+  function loadHlsJs(hlsUrl) {
+    showLoading('Loading HLS…');
+    const stage = document.getElementById('stage');
+    stage.innerHTML = '';
+    const video = document.createElement('video');
+    video.controls = true;
+    video.playsInline = true;
+    video.setAttribute('playsinline', '');
+    video.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000;display:block';
+    if (poster) video.poster = poster;
+    stage.appendChild(video);
+
+    const hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+    const sameOrigin = hlsUrl.startsWith(location.origin);
+    const finalSrc = sameOrigin ? hlsUrl : proxyUrl(hlsUrl);
+    hls.loadSource(finalSrc);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      try { video.play().catch(() => {}); } catch (_) {}
+    });
+    hls.on(Hls.Events.ERROR, (_e, data) => {
+      if (data.fatal) {
+        showError('HLS error', 'Code ' + data.type + ' — ' + (data.details || 'unknown'), [
+          { tag: 'a', href: 'vlc://' + hlsUrl, label: '▶ Open in VLC' },
+        ]);
+      }
+    });
+    window._hls = hls;
+    window._currentVideo = video;
+  }
+
+  /** Load MKV via Clappr (uses MediaSource + Matroska demuxer). */
+  function loadClapprMkv(mkvUrl) {
+    showLoading('Loading MKV…');
+    const stage = document.getElementById('stage');
+    stage.innerHTML = '<div id="player-clappr"></div>';
+
+    const sameOrigin = mkvUrl.startsWith(location.origin);
+    const finalSrc = sameOrigin ? mkvUrl : proxyUrl(mkvUrl);
+
+    try {
+      const player = new Clappr.Player({
+        source: finalSrc,
+        parentId: '#player-clappr',
+        height: '100%',
+        width: '100%',
+        autoPlay: true,
+        poster: poster || '',
+        mimeType: 'video/x-matroska',
+        plugins: [],
+        events: {
+          onError: (e) => {
+            console.warn('Clappr error', e);
+            // Try native <video> as last resort (some browsers can play MKV via VP9 codec).
+            loadNative(mkvUrl, true);
+          },
+        },
+      });
+      window._clappr = player;
+    } catch (e) {
+      console.warn('Clappr init failed', e);
+      loadNative(mkvUrl, true);
+    }
+  }
+
+  /** Load as sandboxed iframe (last resort). */
+  function loadIframe(iframeUrl) {
+    showLoading('Loading player…');
+    const stage = document.getElementById('stage');
+    stage.innerHTML = '';
+    const iframe = document.createElement('iframe');
+    iframe.src = iframeUrl;
+    iframe.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+    iframe.allowFullscreen = true;
+    iframe.referrerPolicy = 'no-referrer';
+    iframe.sandbox = 'allow-scripts allow-same-origin allow-presentation allow-forms';
+    stage.appendChild(iframe);
+  }
+
+  // ---------- Keyboard shortcuts ----------
+  document.addEventListener('keydown', (e) => {
+    const v = window._currentVideo || (window._vjsPlayer && window._vjsPlayer.tech_ && window._vjsPlayer.tech_.el());
+    if (!v) return;
+    if (e.target && e.target.tagName === 'INPUT') return;
+
+    switch (e.key) {
+      case ' ':
+      case 'k':
+        e.preventDefault();
+        if (v.paused) v.play(); else v.pause();
+        break;
+      case 'ArrowRight':
+        if (!isNaN(v.duration)) v.currentTime = Math.min(v.duration, v.currentTime + 10);
+        break;
+      case 'ArrowLeft':
+        v.currentTime = Math.max(0, v.currentTime - 10);
+        break;
+      case 'ArrowUp':
+        v.volume = Math.min(1, v.volume + 0.1);
+        break;
+      case 'ArrowDown':
+        v.volume = Math.max(0, v.volume - 0.1);
+        break;
+      case 'f':
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+        else document.exitFullscreen();
+        break;
+      case 'm':
+        v.muted = !v.muted;
+        break;
+    }
+  });
+
+  // ---------- Cleanup on unload ----------
+  window.addEventListener('beforeunload', () => {
+    try { if (window._hls)      window._hls.destroy(); } catch (_) {}
+    try { if (window._vjsPlayer) window._vjsPlayer.dispose(); } catch (_) {}
+    try { if (window._clappr)   window._clappr.destroy(); } catch (_) {}
+  });
+
+  // ---------- Boot ----------
+  main();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+/* SKMovies Mini App — TG-specific styles (on top of main styles.css) */
+.splash{position:fixed;inset:0;background:var(--bg-dark,#202529);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .4s,visibility .4s}
+.splash.is-hidden{opacity:0;visibility:hidden;pointer-events:none}
+.splash img{width:120px;height:120px;border-radius:24px;animation:pulse 2s ease-in-out infinite}
+.splash__title{font-size:28px;font-weight:900;letter-spacing:-0.8px;margin-top:18px;color:#fff;font-family:var(--font-primary)}
+.splash__sub{font-size:14px;color:#a5a5a5;margin-top:4px}
+.splash__spinner{width:32px;height:32px;margin-top:24px;border:3px solid #3a3a3a;border-top-color:var(--red);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.settings-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.settings-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;background:#f5f5f5;border:1px solid var(--border);border-radius:10px;font-size:14px}
+.dark-ui .settings-item{background:var(--card-bg-dark);color:#eaeaea}
+.settings-item__label{font-weight:600}
+.settings-item__value{color:var(--text-muted);font-size:12px}
+.settings-toggle{position:relative;width:44px;height:24px;background:#636363;border-radius:999px;cursor:pointer;transition:background .2s}
+.settings-toggle.is-on{background:var(--red)}
+.settings-toggle::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:transform .2s var(--ease-spring)}
+.settings-toggle.is-on::after{transform:translateX(20px)}
+
+/* TG theme integration */
+:root.tg-themed{
+  --red: var(--tg-theme-button-color, #fb1114);
+  --black: var(--tg-theme-bg-color, #0a0909);
+}

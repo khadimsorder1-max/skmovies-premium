@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#fb1114" />
+  <title>Offline — SKMovies</title>
+  <link rel="icon" href="/assets/favicon-32.webp" type="image/webp" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #202529; color: #f5f5fa; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; }
+    .card { max-width: 420px; padding: 40px 28px; background: #2d2d2d; border: 1px solid #3a3a3a; border-radius: 15px; box-shadow: 0 20px 60px rgba(0,0,0,0.7); }
+    .logo { width: 80px; height: 80px; margin: 0 auto 22px; background: #fb1114; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 28px; color: #fff; }
+    h1 { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+    p { font-size: 14px; color: #a5a5a5; line-height: 1.55; margin-bottom: 22px; }
+    .retry { display: inline-flex; padding: 12px 22px; background: #fb1114; color: #fff; border: none; border-radius: 30px; font-weight: 700; font-size: 14px; cursor: pointer; transition: transform 0.15s; }
+    .retry:hover { transform: translateY(-1px); }
+    .retry:active { transform: scale(0.96); }
+    .cached { margin-top: 18px; font-size: 12px; color: #888; }
+    .cached a { color: #fb1114; text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">SK</div>
+    <h1>You're offline</h1>
+    <p>Check your internet connection. Meanwhile, you can still browse movies you've already viewed — they're cached on your device.</p>
+    <button class="retry" onclick="location.reload()">Try again</button>
+    <div class="cached">Or <a href="/">go to home</a> to view cached content.</div>
+  </div>
+</body>
+</html>

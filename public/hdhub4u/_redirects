@@ -1,0 +1,9 @@
+# Redirects — none needed by default, but you can add custom ones here.
+# These are OPTIONAL — only enable if you want clean URLs.
+
+# Convenience: /hdhub4u/ → /hdhub4u.html
+# (Uncomment if your existing _redirects doesn't already use these paths)
+# /hdhub4u  /hdhub4u.html  302
+# /hdhub4u/ /hdhub4u.html  302
+# /watch    /watch.html    302
+# /player   /player.html   302

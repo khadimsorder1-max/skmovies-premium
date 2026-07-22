@@ -1,0 +1,14 @@
+name = "skmovies-premium"
+compatibility_date = "2024-09-01"
+pages_build_output_dir = "."
+
+# Optional KV bindings — the live deployment likely uses these but they're not
+# required for self-hosting. Uncomment and replace with your own KV namespace IDs
+# after `wrangler kv:namespace create`.
+#
+# [[kv_namespaces]]
+# binding = "NOTICES_KV"
+# id = "your-kv-namespace-id"
+
+[vars]
+# Any env vars your functions need go here.

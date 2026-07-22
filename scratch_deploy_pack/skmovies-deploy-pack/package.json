@@ -1,0 +1,13 @@
+{
+  "name": "skmovies-deploy-pack",
+  "version": "1.0.0",
+  "description": "SKMovies — one-click deploy pack with code + docs",
+  "private": true,
+  "scripts": {
+    "dev": "bash dev.sh full",
+    "dev:frontend": "bash dev.sh frontend",
+    "dev:backend": "bash dev.sh backend",
+    "deploy": "bash deploy.sh",
+    "deploy:name": "bash deploy.sh"
+  }
+}

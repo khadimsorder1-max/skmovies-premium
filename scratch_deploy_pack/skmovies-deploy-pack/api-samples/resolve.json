@@ -1,0 +1,34 @@
+{
+    "ok": true,
+    "urls": [
+        "https://new.multicloudlinks.com/view/xp76vc"
+    ],
+    "rawUrls": [
+        "https://new.multicloudlinks.com/view/xp76vc"
+    ],
+    "hosts": [
+        {
+            "host": "GDFlix",
+            "url": "https://gdflix.dev/file/yK9aO4aW5RMaMQo",
+            "text": "https://gdflix.dev/file/yK9aO4aW5RMaMQo"
+        },
+        {
+            "host": "FilePress",
+            "url": "https://new2.filepress.baby/file/6a59ec23590f6c98fc9c33d9",
+            "text": "https://new2.filepress.baby/file/6a59ec23590f6c98fc9c33d9"
+        },
+        {
+            "host": "MultiCloud",
+            "url": "https://new.multicloudlinks.com/view/xp76vc",
+            "text": "https://new.multicloudlinks.com/view/xp76vc"
+        },
+        {
+            "host": "Telegram",
+            "url": "https://t.me/mlsbdrequest",
+            "text": "Telegram"
+        }
+    ],
+    "savelinksUrl": "https://savelinks.me/view/0dqRLjqb",
+    "source": "mlsbd",
+    "fallback": null
+}

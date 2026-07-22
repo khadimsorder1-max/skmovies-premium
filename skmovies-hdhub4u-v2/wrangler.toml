@@ -1,0 +1,49 @@
+# ============================================================
+# Cloudflare Pages configuration for skmovies-hdhub4u v2
+# ============================================================
+#
+# This file is OPTIONAL — Cloudflare Pages works without it.
+# It's provided for local dev (`wrangler pages dev`) and to
+# document the KV namespace binding required for the cache layer.
+#
+# Per requirement #5: "Cloudflare worker use kortechi tao free tai
+# jeno extra request korey request waste nah hoy"
+#
+# To enable KV caching on Cloudflare Pages:
+#
+#   1. Create a KV namespace in your Cloudflare dashboard:
+#        Workers & Pages → KV → Create namespace
+#        Name: HDHUB4U_CACHE
+#
+#   2. Bind it to your Pages project:
+#        Workers & Pages → your-pages-project → Settings →
+#        Functions → KV namespace bindings → Add binding
+#        Variable name: HDHUB4U_CACHE
+#        KV namespace:  HDHUB4U_CACHE
+#
+#   3. (Optional) Set HDHUB4U_FORCE_HOST to pin a specific mirror:
+#        Environment variables → Add variable
+#        Variable name: HDHUB4U_FORCE_HOST
+#        Value: (leave empty unless you want to override the auto-resolver)
+#
+# The cache layer is OPTIONAL — if the KV binding is missing, the
+# endpoints fall back to Cache API (always available) + in-isolate
+# memory cache. So the site works on a fresh Cloudflare Pages deploy
+# even without any configuration.
+# ============================================================
+
+name = "skmovies-premium"
+compatibility_date = "2024-09-01"
+pages_build_output_dir = "public"
+
+# KV bindings — uncomment and adjust after creating the namespace.
+# (On Pages, set this via the dashboard instead — see comment above.)
+
+# [[kv_namespaces]]
+# binding = "HDHUB4U_CACHE"
+# id = "your-kv-namespace-id-here"
+# preview_id = "your-kv-preview-namespace-id-here"
+
+# Environment variables — set via dashboard for production.
+# [vars]
+# HDHUB4U_FORCE_HOST = ""

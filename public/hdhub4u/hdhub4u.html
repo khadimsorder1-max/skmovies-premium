@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HDHub4u+ — skmovies-premium.pages.dev</title>
+<meta name="description" content="HDHub4u source integration for skmovies-premium.pages.dev — browse, search, stream, and download from the HDHub4u network with sandboxed player + MX Player support.">
+
+<!-- HDHub4u dark + gold theme -->
+<link rel="stylesheet" href="css/hdhub4u.css">
+
+<!-- Fonts (optional — falls back to system fonts if blocked) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  body {
+    margin: 0;
+    background: var(--hd-bg);
+    color: var(--hd-text);
+    font-family: 'Bricolage Grotesque', -apple-system, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .hd-hero {
+    max-width: 1400px; margin: 0 auto;
+    padding: 36px 24px 8px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 24px; flex-wrap: wrap;
+  }
+  .hd-hero h1 {
+    font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+    font-size: 28px; font-weight: 700;
+    letter-spacing: -.02em;
+    margin: 0;
+  }
+  .hd-hero h1 .hd-accent { color: var(--hd-accent); }
+  .hd-hero p {
+    margin: 4px 0 0;
+    color: var(--hd-text-dim);
+    font-size: 13px;
+  }
+  .hd-hero .hd-source-switch {
+    display: inline-flex; gap: 6px;
+    background: var(--hd-bg-2);
+    padding: 4px;
+    border-radius: 22px;
+    border: 1px solid var(--hd-border);
+  }
+  .hd-source-switch button {
+    background: transparent; color: var(--hd-text-dim);
+    border: 0; cursor: pointer;
+    padding: 6px 14px; border-radius: 18px;
+    font-size: 12px; font-weight: 600;
+    transition: all .15s;
+  }
+  .hd-source-switch button.active {
+    background: var(--hd-bg-3); color: var(--hd-text);
+  }
+  .hd-source-switch button.hd-source-hdhub4u.active {
+    background: var(--hd-grad); color: #111;
+  }
+</style>
+</head>
+<body>
+
+<div class="hd-hero">
+  <div>
+    <h1>HDHub4u<span class="hd-accent">+</span> Source <span style="font-size:14px;color:var(--hd-text-dim);font-weight:500">v2</span></h1>
+    <p>Live mirror auto-tracked from <code style="color:var(--hd-accent);font-family:'JetBrains Mono',monospace;font-size:11px">hdhub4u.med</code> · ad-free player (MKV / HLS) · MX / VLC / KMPlayer deep-links · KV + Cache API caching · lazy-loaded posters</p>
+  </div>
+  <div class="hd-source-switch" role="tablist" aria-label="Active source">
+    <button type="button" class="hd-source-mlsbd">mlsbd.co</button>
+    <button type="button" class="hd-source-freedrive">freedrive</button>
+    <button type="button" class="hd-source-hdhub4u active">hdhub4u</button>
+  </div>
+</div>
+
+<div id="app"></div>
+
+<!-- Scripts -->
+<script src="js/hdhub4u-client.js"></script>
+<script src="js/hdhub4u-ui.js"></script>
+<script>
+  // Initialise the UI inside #app
+  const ui = new HDHub4uUI({ container: document.getElementById('app') });
+  ui.init();
+
+  // Source switcher (your existing site already has mlsbd & freedrive —
+  // these buttons are just placeholders so you can wire them up to your
+  // existing source loaders).
+  document.querySelectorAll('.hd-source-switch button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.hd-source-switch button').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (btn.classList.contains('hd-source-hdhub4u')) {
+        ui.loadHome(1);
+      } else {
+        // TODO: call your existing mlsbd / freedrive loader here
+        ui.toast('Switch to ' + btn.textContent + ' — wire this to your existing loader.', 'info');
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

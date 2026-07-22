@@ -1,0 +1,50 @@
+{
+  "name": "SKMovies — Movie Link Store",
+  "short_name": "SKMovies",
+  "description": "The Largest Movie Link Store — ad-free premium movie streamer.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0d0f14",
+  "theme_color": "#fb1114",
+  "lang": "bn",
+  "dir": "ltr",
+  "categories": ["entertainment", "video"],
+  "icons": [
+    { "src": "/assets/icon-192.webp", "sizes": "192x192", "type": "image/webp", "purpose": "any" },
+    { "src": "/assets/icon-512.webp", "sizes": "512x512", "type": "image/webp", "purpose": "any" },
+    { "src": "/assets/icon-192-maskable.webp", "sizes": "192x192", "type": "image/webp", "purpose": "maskable" },
+    { "src": "/assets/icon-512-maskable.webp", "sizes": "512x512", "type": "image/webp", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Search",
+      "short_name": "Search",
+      "description": "Search movies",
+      "url": "/?focus=search",
+      "icons": [{ "src": "/assets/icon-192.webp", "sizes": "192x192" }]
+    },
+    {
+      "name": "Trending",
+      "short_name": "Trending",
+      "description": "Trending now",
+      "url": "/?view=trending",
+      "icons": [{ "src": "/assets/icon-192.webp", "sizes": "192x192" }]
+    },
+    {
+      "name": "Watchlist",
+      "short_name": "Watchlist",
+      "description": "Your saved movies",
+      "url": "/?view=favs",
+      "icons": [{ "src": "/assets/icon-192.webp", "sizes": "192x192" }]
+    },
+    {
+      "name": "History",
+      "short_name": "History",
+      "description": "Recently viewed",
+      "url": "/?view=history",
+      "icons": [{ "src": "/assets/icon-192.webp", "sizes": "192x192" }]
+    }
+  ]
+}

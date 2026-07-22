@@ -1,0 +1,144 @@
+{
+  "seasons": [
+    {
+      "se": 1,
+      "maxEp": 13,
+      "allEp": "",
+      "resolutions": [
+        {
+          "resolution": 360,
+          "epNum": 12
+        },
+        {
+          "resolution": 480,
+          "epNum": 13
+        },
+        {
+          "resolution": 720,
+          "epNum": 11
+        },
+        {
+          "resolution": 1080,
+          "epNum": 13
+        }
+      ]
+    },
+    {
+      "se": 2,
+      "maxEp": 18,
+      "allEp": "",
+      "resolutions": [
+        {
+          "resolution": 360,
+          "epNum": 18
+        },
+        {
+          "resolution": 480,
+          "epNum": 18
+        },
+        {
+          "resolution": 720,
+          "epNum": 17
+        },
+        {
+          "resolution": 1080,
+          "epNum": 18
+        }
+      ]
+    },
+    {
+      "se": 3,
+      "maxEp": 26,
+      "allEp": "",
+      "resolutions": [
+        {
+          "resolution": 360,
+          "epNum": 26
+        },
+        {
+          "resolution": 480,
+          "epNum": 26
+        },
+        {
+          "resolution": 720,
+          "epNum": 25
+        },
+        {
+          "resolution": 1080,
+          "epNum": 26
+        }
+      ]
+    },
+    {
+      "se": 4,
+      "maxEp": 10,
+      "allEp": "",
+      "resolutions": [
+        {
+          "resolution": 360,
+          "epNum": 10
+        },
+        {
+          "resolution": 480,
+          "epNum": 10
+        },
+        {
+          "resolution": 720,
+          "epNum": 10
+        },
+        {
+          "resolution": 1080,
+          "epNum": 10
+        }
+      ]
+    },
+    {
+      "se": 5,
+      "maxEp": 16,
+      "allEp": "",
+      "resolutions": [
+        {
+          "resolution": 360,
+          "epNum": 17
+        },
+        {
+          "resolution": 480,
+          "epNum": 17
+        },
+        {
+          "resolution": 720,
+          "epNum": 15
+        },
+        {
+          "resolution": 1080,
+          "epNum": 16
+        }
+      ]
+    },
+    {
+      "se": 6,
+      "maxEp": 10,
+      "allEp": "",
+      "resolutions": [
+        {
+          "resolution": 360,
+          "epNum": 10
+        },
+        {
+          "resolution": 480,
+          "epNum": 10
+        },
+        {
+          "resolution": 720,
+          "epNum": 7
+        },
+        {
+          "resolution": 1080,
+          "epNum": 10
+        }
+      ]
+    }
+  ],
+  "source": "ailok.pe",
+  "uploadBy": "variyava7860"
+}

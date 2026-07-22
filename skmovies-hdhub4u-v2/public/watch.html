@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Watch Online — HDHub4u+ (ad-free)</title>
+<link rel="stylesheet" href="/css/hdhub4u.css">
+<style>
+  body { margin: 0; background: #000; color: var(--hd-text); font-family: 'Geist', system-ui, sans-serif; }
+  .watch-wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  .watch-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .watch-bar h1 { font-size: 18px; font-weight: 700; margin: 0; flex: 1; min-width: 200px; }
+  .watch-bar input {
+    flex: 1; min-width: 280px;
+    background: var(--hd-bg-2); color: var(--hd-text);
+    border: 1px solid var(--hd-border);
+    padding: 9px 14px; border-radius: 22px;
+    font-size: 13px; outline: 0;
+  }
+  .watch-bar input:focus { border-color: var(--hd-accent); }
+  .watch-bar button {
+    background: var(--hd-grad); color: #111;
+    border: 0; cursor: pointer;
+    padding: 9px 18px; border-radius: 22px;
+    font-size: 13px; font-weight: 600;
+  }
+  .player-box {
+    width: 100%; aspect-ratio: 16 / 9;
+    background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--hd-border);
+    position: relative;
+  }
+  .player-box iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .player-empty {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--hd-text-mute); font-size: 14px;
+    flex-direction: column; gap: 10px;
+    text-align: center; padding: 20px;
+  }
+  .info-card {
+    margin-top: 16px;
+    background: var(--hd-bg-2);
+    border: 1px solid var(--hd-border);
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 13px; line-height: 1.6;
+    color: var(--hd-text-dim);
+  }
+  .info-card h3 { color: var(--hd-accent); font-size: 13px; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+  .info-card code { background: var(--hd-bg-3); padding: 1px 6px; border-radius: 4px; color: var(--hd-accent); font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .mx-btn, .vlc-btn, .km-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 9px 16px; border-radius: 22px;
+    text-decoration: none; font-size: 13px; font-weight: 600;
+    margin-right: 6px;
+  }
+  .mx-btn  { background: rgba(255,221,149,.1); border: 1px solid rgba(255,221,149,.3); color: var(--hd-accent); }
+  .vlc-btn { background: rgba(255,140,66,.1);  border: 1px solid rgba(255,140,66,.3);  color: #ff8c42; }
+  .km-btn  { background: rgba(93,173,226,.1);  border: 1px solid rgba(93,173,226,.3);  color: #5dade2; }
+  .mx-btn:hover, .vlc-btn:hover, .km-btn:hover { filter: brightness(1.2); }
+  .ext-row { margin-top: 12px; }
+  .mode-row {
+    display: inline-flex; gap: 6px;
+    background: var(--hd-bg-2);
+    padding: 4px;
+    border-radius: 22px;
+    border: 1px solid var(--hd-border);
+    margin-left: auto;
+  }
+  .mode-row button {
+    background: transparent; color: var(--hd-text-dim);
+    padding: 6px 14px; border-radius: 18px;
+    font-size: 12px; font-weight: 600;
+    border: 0; cursor: pointer;
+  }
+  .mode-row button.active {
+    background: var(--hd-bg-3); color: var(--hd-text);
+  }
+  .mode-row button.active.ad-free {
+    background: var(--hd-grad); color: #111;
+  }
+</style>
+</head>
+<body>
+<div class="watch-wrap">
+  <div class="watch-bar">
+    <h1>▶ Watch Online</h1>
+    <input id="playerUrl" placeholder="Paste hubstream.art/#… or hdstream4u.com/file/… URL" />
+    <button onclick="loadPlayer()">Load Player</button>
+    <div class="mode-row" role="tablist" aria-label="Player mode">
+      <button id="mode-adfree" class="active ad-free" type="button">Ad-free</button>
+      <button id="mode-original" type="button">Original</button>
+    </div>
+  </div>
+
+  <div class="player-box">
+    <div class="player-empty" id="empty">
+      <div style="font-size:42px">🎬</div>
+      <div>Paste a player URL above and click <b>Load Player</b></div>
+      <div style="font-size:11px;opacity:.7">Ad-free mode: opens our player (no popups, plays MKV/HLS) · Original mode: sandboxed iframe of the HDHub4u player</div>
+    </div>
+    <iframe id="playerFrame" style="display:none"
+            sandbox="allow-scripts allow-same-origin allow-presentation allow-forms"
+            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+            allowfullscreen referrerpolicy="no-referrer"></iframe>
+  </div>
+
+  <div class="ext-row" id="ext-row" style="display:none">
+    <a id="mxLink"  class="mx-btn"  href="#" style="display:none">▶ MX Player</a>
+    <a id="vlcLink" class="vlc-btn" href="#" style="display:none">▶ VLC</a>
+    <a id="kmLink"  class="km-btn"  href="#" style="display:none">▶ KMPlayer</a>
+    <a id="extLink" class="hd-btn hd-btn-trailer" href="#" target="_blank" rel="noopener" style="display:none">↗ Open URL</a>
+  </div>
+
+  <div class="info-card">
+    <h3>How this works</h3>
+    <p>
+      <b>Ad-free mode</b> (default): we resolve the underlying <code>.mp4</code> / <code>.m3u8</code> / <code>.mkv</code> URL
+      server-side, then load it in our own player at <code>/player.html</code>. The player uses Video.js + hls.js +
+      Clappr, so it handles MP4 / HLS / MKV / WebM natively — no popups, no ads, no redirects.
+    </p>
+    <p style="margin-top:8px">
+      <b>Original mode</b>: we wrap the original HDHub4u player URL inside a <code>sandbox</code>ed iframe. The
+      <code>sandbox</code> attribute strips away pop-ups, top-level navigation, and form submission — so the only
+      thing the player can do is play video.
+    </p>
+    <p style="margin-top:8px">
+      Resolved URLs are cached in Cloudflare KV + Cache API + localStorage for 24 hours — repeat plays don't
+      burn Worker requests.
+    </p>
+  </div>
+</div>
+
+<script src="/js/hdhub4u-client.js"></script>
+<script>
+  const api = new HDHub4uClient();
+  const input = document.getElementById('playerUrl');
+  const frame = document.getElementById('playerFrame');
+  const empty = document.getElementById('empty');
+  const extRow = document.getElementById('ext-row');
+  const mxLink  = document.getElementById('mxLink');
+  const vlcLink = document.getElementById('vlcLink');
+  const kmLink  = document.getElementById('kmLink');
+  const extLink = document.getElementById('extLink');
+
+  let mode = 'adfree'; // 'adfree' | 'original'
+
+  // Mode toggle
+  document.getElementById('mode-adfree').addEventListener('click', () => {
+    mode = 'adfree';
+    document.getElementById('mode-adfree').classList.add('active');
+    document.getElementById('mode-original').classList.remove('active');
+    if (input.value.trim()) loadPlayer();
+  });
+  document.getElementById('mode-original').addEventListener('click', () => {
+    mode = 'original';
+    document.getElementById('mode-original').classList.add('active');
+    document.getElementById('mode-adfree').classList.remove('active');
+    if (input.value.trim()) loadPlayer();
+  });
+
+  // Allow ?url=… deep-linking
+  const params = new URLSearchParams(location.search);
+  if (params.get('url')) {
+    input.value = params.get('url');
+    loadPlayer();
+  }
+
+  async function loadPlayer() {
+    const url = input.value.trim();
+    if (!url) { alert('Please paste a player URL first.'); return; }
+    empty.style.display = 'none';
+    frame.style.display = 'block';
+    extRow.style.display = 'block';
+    // Hide external buttons until resolved
+    mxLink.style.display = 'none';
+    vlcLink.style.display = 'none';
+    kmLink.style.display = 'none';
+    extLink.style.display = 'none';
+
+    if (mode === 'adfree') {
+      // First load a "Resolving…" message via the iframe stream URL,
+      // then swap to our ad-free player once we have a direct URL.
+      frame.src = api.iframeStreamUrl(url, 'Resolving…');
+      try {
+        const info = await api.resolveStream(url);
+        const direct = info.directUrl || info.streamUrl || info.playableUrl;
+        if (direct) {
+          frame.src = api.playerUrl(direct, { title: 'HDHub4u Watch Online', source: info.source });
+        } else if (info.iframe) {
+          // No direct URL — fall back to sandboxed iframe of the resolved iframe URL.
+          frame.src = api.iframeStreamUrl(info.iframe, 'HDHub4u Watch Online');
+        } else {
+          throw new Error('No playable URL found');
+        }
+        // Wire external buttons
+        if (info.mxIntent)    { mxLink.href  = info.mxIntent;  mxLink.style.display  = 'inline-flex'; }
+        if (info.vlcUrl)      { vlcLink.href = info.vlcUrl;    vlcLink.style.display = 'inline-flex'; }
+        if (info.kmIntent)    { kmLink.href  = info.kmIntent;  kmLink.style.display  = 'inline-flex'; }
+        if (info.externalUrl) { extLink.href = info.externalUrl; extLink.style.display = 'inline-flex'; }
+      } catch (e) {
+        alert('Could not resolve ad-free URL: ' + e.message + '\nFalling back to original player.');
+        frame.src = api.iframeStreamUrl(url, 'HDHub4u Watch Online');
+      }
+    } else {
+      // Original sandboxed iframe
+      frame.src = api.iframeStreamUrl(url, 'HDHub4u Watch Online');
+      // Resolve external buttons in background
+      api.resolveStream(url).then((info) => {
+        if (info.mxIntent)    { mxLink.href  = info.mxIntent;  mxLink.style.display  = 'inline-flex'; }
+        if (info.vlcUrl)      { vlcLink.href = info.vlcUrl;    vlcLink.style.display = 'inline-flex'; }
+        if (info.kmIntent)    { kmLink.href  = info.kmIntent;  kmLink.style.display  = 'inline-flex'; }
+        if (info.externalUrl) { extLink.href = info.externalUrl; extLink.style.display = 'inline-flex'; }
+      }).catch(() => {});
+    }
+  }
+
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') loadPlayer(); });
+</script>
+</body>
+</html>

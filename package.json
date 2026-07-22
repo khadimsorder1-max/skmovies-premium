@@ -1,0 +1,14 @@
+{
+  "name": "skmovies",
+  "version": "3.3.8",
+  "description": "SKMovies — pixel-perfect ad-free clone of mlsbd.co for skmovies.pages.dev",
+  "private": true,
+  "scripts": {
+    "dev": "npx wrangler pages dev public --port 8788",
+    "deploy": "npx wrangler pages deploy public --project-name skmovies-premium",
+    "deploy:prod": "npx wrangler pages deploy public --project-name skmovies-premium --branch main",
+    "tail": "npx wrangler pages deployment tail --project-name skmovies-premium"
+  },
+  "devDependencies": { "wrangler": "^3.78.0" },
+  "engines": { "node": ">=18" }
+}
