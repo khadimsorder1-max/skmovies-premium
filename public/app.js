@@ -2633,21 +2633,37 @@
 
     const isSavelinks = /savelinks/i.test(savelinksUrl);
     const isFdmLink = /freedrivemovie\.(cyou|org|com)\/(links|episodes)\//i.test(savelinksUrl);
+    const isKrxLink = /krx18\.com\/links\//i.test(savelinksUrl);
+
+    if (isKrxLink) {
+      toast('ডাউনলোড লিংক তৈরি করা হচ্ছে…', 'info');
+      try {
+        const r = await fetchJson(`${getApi().resolve}?url=${encodeURIComponent(savelinksUrl)}`);
+        if (r && r.ok && r.urls && r.urls.length > 0) {
+          const targetUrl = r.urls[0];
+          toast('ডাউনলোড শুরু হচ্ছে…', 'success');
+          window.open(targetUrl, '_blank');
+          return;
+        }
+      } catch (e) {}
+      window.open(savelinksUrl, '_blank');
+      return;
+    }
 
     if (!isSavelinks && !isFdmLink) {
-      const isZip = /\.zip\b/i.test(savelinksUrl) || savelinksUrl.includes('.zip');
-      if (isZip) {
-        toast('ZIP ডাউনলোড শুরু হচ্ছে…', 'success');
+      const isDirectHost = /k2s\.cc|keep2share|nitroflare|alterupload|1fichier|filebee|gofile|vikingfile|megaup|fastdl|pixeldrain|vcloud/i.test(savelinksUrl);
+      if (isDirectHost) {
+        toast('ডাউনলোড শুরু হচ্ছে…', 'success');
         window.open(savelinksUrl, '_blank');
         return;
       }
 
-      // Always open resolved host links (Nitroflare, 1Fichier, Keep2Share, etc.)
-      // in the Player & Download Choice Popup Sheet!
+      // Always open resolved stream links in the Player Choice Sheet!
       recordUrl(quality || 'DL', savelinksUrl, title);
       openPlayerSheet(savelinksUrl, title, []);
       return;
     }
+
 
 
     openSheet({
