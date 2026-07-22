@@ -2042,7 +2042,8 @@
       return;
     }
 
-    dom.modalBody.innerHTML = '<div class="skeleton-modal"></div>';
+    dom.modalBody.innerHTML = '<div class="skm-spinner-wrapper"><div class="skm-loader"></div><div class="skm-loading-text">Loading Movie Details...</div></div>';
+
     try {
       const params = new URLSearchParams(location.search);
       const nocache = params.get('nocache');
