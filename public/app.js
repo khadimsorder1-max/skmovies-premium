@@ -2636,30 +2636,19 @@
 
     if (!isSavelinks && !isFdmLink) {
       const isZip = /\.zip\b/i.test(savelinksUrl) || savelinksUrl.includes('.zip');
-      if (isZip) { toast('ZIP ডাউনলোড শুরু হচ্ছে…', 'success'); window.open(savelinksUrl, '_blank'); return; }
-      const isDirectDownloadHost = /k2s\.cc|keep2share|nitroflare|alterupload|1fichier|filebee|gofile|vikingfile|megaup|fastdl|krx18/i.test(savelinksUrl);
-      if (isDirectDownloadHost) {
-        toast('ডাউনলোড লিংক খোলা হচ্ছে…', 'success');
+      if (isZip) {
+        toast('ZIP ডাউনলোড শুরু হচ্ছে…', 'success');
         window.open(savelinksUrl, '_blank');
         return;
       }
 
-
-      const isVideo = /\.(mp4|mkv|m3u8|webm)\b/i.test(savelinksUrl);
-      const isIntermediateDlHost = /hubcdn\.sbs|hubdrive\.(tips|com|net)|gadgetsweb\.xyz|hdstream4u\.com|hubstream\.art|hubcloud\.(foo|lol|com)|gdflix\.(dev|dad|com|io)|filepress\.(baby|com)|gdtot\.(dad|com|dev)|gdlink\.dev|multidownload\.website|busycdn\.xyz|indexserver\.site|multicloudlinks/i.test(savelinksUrl);
-
-      if (!isVideo && !isIntermediateDlHost) {
-        // Truly external link — open in new tab
-        toast('বাইরের লিংক খোলা হচ্ছে…', 'success');
-        window.open(savelinksUrl, '_blank');
-        return;
-      }
-
-      // Either direct video OR intermediate host — open in player sheet
+      // Always open resolved host links (Nitroflare, 1Fichier, Keep2Share, etc.)
+      // in the Player & Download Choice Popup Sheet!
       recordUrl(quality || 'DL', savelinksUrl, title);
       openPlayerSheet(savelinksUrl, title, []);
       return;
     }
+
 
     openSheet({
       title: 'লিংক আনা হচ্ছে',
