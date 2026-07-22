@@ -112,9 +112,11 @@ export async function onRequestGet({ request, env }) {
   const page = url.searchParams.get('page') || '1';
   const slug = url.searchParams.get('slug') || '';
   const adult = url.searchParams.get('adult') || '';
+  const refresh = url.searchParams.get('refresh') === '1' || url.searchParams.get('refresh') === 'true';
 
   // Normalize "home" → "latest" for cache key consistency
   if (path === 'home') path = 'latest';
+
 
   // Validate src
   const VALID_SOURCES = ['mlsbd', 'fdm', 'hdhub4u', 'hdhubmain', 'moviebox', 'fibwatch', 'krx18', 'fojik'];
@@ -146,7 +148,7 @@ export async function onRequestGet({ request, env }) {
   }
 
   // 1. Try Cloudflare KV cache first
-  if (env && env.SKM_CACHE) {
+  if (!refresh && env && env.SKM_CACHE) {
     try {
       const cached = await env.SKM_CACHE.get(cacheKey, 'json');
       if (cached) {
@@ -156,8 +158,9 @@ export async function onRequestGet({ request, env }) {
   }
 
   // 2. Try GitHub repo (raw.githubusercontent.com)
-  if (githubPath && env && env.SKM_CACHE_REPO) {
+  if (!refresh && githubPath && env && env.SKM_CACHE_REPO) {
     const ghUrl = `https://raw.githubusercontent.com/${env.SKM_CACHE_REPO}/main/${githubPath}`;
+
     const ghHeaders = { 'Accept': 'application/json' };
     if (env.SKM_CACHE_TOKEN) {
       ghHeaders['Authorization'] = `Bearer ${env.SKM_CACHE_TOKEN}`;

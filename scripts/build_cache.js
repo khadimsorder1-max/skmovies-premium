@@ -82,29 +82,42 @@ async function fetchJson(url, opts) {
 async function githubPutFile(path, content, message) {
   var url = 'https://api.github.com/repos/' + GH_REPO + '/contents/' + path;
   var sha;
+  var existingBase64 = null;
   try {
     var r = await fetchRaw(url, { headers: { Authorization: 'Bearer ' + GH_TOKEN, Accept: 'application/vnd.github+json' } });
-    if (r.status === 200) sha = JSON.parse(r.body).sha;
+    if (r.status === 200) {
+      var data = JSON.parse(r.body);
+      sha = data.sha;
+      if (data.content) existingBase64 = data.content.replace(/\n/g, '').replace(/\r/g, '');
+    }
   } catch(e) {}
+
+  var newBase64 = Buffer.from(content).toString('base64');
+  if (existingBase64 === newBase64) {
+    return { status: 'skipped', path: path };
+  }
+
   var body = JSON.stringify({
     message: message || ('cache: ' + path),
-    content: Buffer.from(content).toString('base64'),
+    content: newBase64,
     branch: GH_BRANCH,
     ...(sha ? { sha: sha } : {}),
   });
-  for (var attempt = 0; attempt < 3; attempt++) {
+
+  for (var attempt = 0; attempt < 4; attempt++) {
     try {
       var r2 = await fetchRaw(url, {
         method: 'PUT',
         headers: { Authorization: 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json', Accept: 'application/vnd.github+json' },
         body: body,
       });
-      if (r2.status === 200 || r2.status === 201) return;
-      if (r2.status === 409) { await sleep(1000); continue; }
+      if (r2.status === 200 || r2.status === 201) return { status: 'updated', path: path };
+      if (r2.status === 409) { await sleep(1500 + attempt * 1000); continue; }
+      if (r2.status === 403 || r2.status === 429) { await sleep(3000 + attempt * 2000); continue; } // Rate limits
       throw new Error('GitHub ' + r2.status + ': ' + r2.body.slice(0, 200));
     } catch(e) {
-      if (attempt === 2) throw e;
-      await sleep(1000);
+      if (attempt === 3) throw e;
+      await sleep(1500);
     }
   }
 }
