@@ -2152,6 +2152,24 @@
     const favs = ls.get(STORE.favs, []);
     const isFav = favs.some((f) => f.slug === m.slug);
 
+    const streamsList = [];
+    const seenStreams = new Set();
+    (Array.isArray(m.streams) ? m.streams : []).forEach(s => {
+      const u = s.url || s.savelinks_url;
+      if (u && !seenStreams.has(u)) {
+        seenStreams.add(u);
+        streamsList.push(s);
+      }
+    });
+    downloads.forEach(d => {
+      const u = d.savelinks_url || d.url;
+      if (u && !seenStreams.has(u) && (d.isStream || /watch|player|stream/i.test(d.label || '') || /hdstream4u|morencius|hubstream|javeng/i.test(u))) {
+        seenStreams.add(u);
+        streamsList.push(d);
+      }
+    });
+
+
     document.title = `${title} — SKMovies`;
     let canonical = document.querySelector('link[rel="canonical"]');
     if (!canonical) {
@@ -2249,6 +2267,40 @@
               ${m.seasons.map(s => `<div style="background:rgba(255,255,255,0.06);padding:8px 12px;border-radius:8px;font-size:13px;"><strong>Season ${s.se}</strong><div style="font-size:11px;color:var(--text-muted);">${s.maxEp} Episodes</div></div>`).join('')}
             </div>
           </div>` : ''}
+        ${streamsList.length ? `
+          <div class="post-section-title stream" style="display:flex;align-items:center;justify-content:space-between;margin-top:20px;margin-bottom:12px;">
+            <span>🎬 Online Stream Players (Ad-Free Sandboxed)</span>
+            <span class="chip" style="background:#10b981;color:#fff;font-size:10px;padding:3px 8px;border-radius:6px;font-weight:700;">🛡️ 100% Ads & Popups Blocked</span>
+          </div>
+          <div class="stream-sections" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:12px;margin-bottom:20px;">
+            ${streamsList.map(s => {
+              const url = s.url || s.savelinks_url;
+              let b64;
+              try { b64 = btoa(url); } catch (_) { b64 = btoa(unescape(encodeURIComponent(url))); }
+              b64 = b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+              const iframePlayerUrl = '/iframe-player.html?url=' + b64 + '&title=' + encodeURIComponent(title);
+              const origLabel = s.label || s.host || 'Watch Stream';
+              const isPlayer1 = /player\s*1|hdstream|morencius/i.test(origLabel);
+              const isPlayer2 = /player\s*2|hubstream/i.test(origLabel);
+              const isKrx = /krx|javeng/i.test(origLabel || url);
+
+              let badgeTitle = isPlayer1 ? 'Watch Player 1 (Direct HLS)' : (isPlayer2 ? 'Watch Player 2 (Ad-Free Embed)' : (isKrx ? 'KRX18 Player (JavEng Stream)' : origLabel));
+              let btnBg = isPlayer1 ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : (isPlayer2 ? 'linear-gradient(135deg, #7c3aed, #6d28d9)' : 'linear-gradient(135deg, #059669, #10b981)');
+
+              return `
+                <a class="stream-card-btn" href="${escapeHtml(iframePlayerUrl)}" target="_blank" rel="noopener" style="background:${btnBg};border-radius:12px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;color:#fff;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,0.25);transition:all 0.2s ease;">
+                  <div style="display:flex;align-items:center;gap:12px;">
+                    <span style="font-size:22px;">▶️</span>
+                    <div style="text-align:left;">
+                      <div style="font-weight:700;font-size:14px;line-height:1.2;">${escapeHtml(badgeTitle)}</div>
+                      <div style="font-size:11px;opacity:0.85;margin-top:2px;">Shielded Sandboxed Player</div>
+                    </div>
+                  </div>
+                  <span class="chip" style="background:rgba(255,255,255,0.25);color:#fff;font-size:10px;font-weight:800;border:none;">PLAY</span>
+                </a>
+              `;
+            }).join('')}
+          </div>` : ''}
         ${downloads.length ? `
           <div class="post-section-title download">Download Links</div>
           <div class="download-sections">
@@ -2260,10 +2312,10 @@
                     const cls = /480/i.test(item.quality) ? 'sd' : /720/i.test(item.quality) ? 'hd' : /1080/i.test(item.quality) ? 'fhd' : 'uhd';
                     return `<a class="dl-btn dl-btn--${cls}" data-savelinks="${escapeHtml(item.savelinks_url || item.url)}" data-quality="${escapeHtml(item.quality)}" data-size="${escapeHtml(item.size || '')}" href="${escapeHtml(item.savelinks_url || item.url)}" target="_blank" rel="noopener noreferrer"><span class="dl-btn__quality">${escapeHtml(item.host ? item.host + ' ' + (item.quality || 'DL') : (item.quality || 'Download'))}</span>${item.size ? `<span class="dl-btn__size">${escapeHtml(item.size)}</span>` : ''}</a>`;
                   }).join('')}
-
                 </div>
               </div>`).join('')}
           </div>` : ''}
+
         <div style="margin-top:20px;text-align:center;">
           <button id="searchMlsbdBtn" style="width:100%;max-width:440px;padding:14px 20px;border-radius:12px;font-weight:700;font-size:14px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(37,99,235,0.35);">
             🔍 MLSBD / FreeDrive এ সম্পূর্ণ মুভি ও সব এপিসোড লিংক খুঁজুন
