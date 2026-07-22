@@ -1439,6 +1439,12 @@
       }
     }
 
+    const headerUnlock = document.getElementById('headerUnlockBtn');
+    if (headerUnlock) headerUnlock.addEventListener('click', () => openUnlockModal());
+    const navUnlock = document.getElementById('navUnlockBtn');
+    if (navUnlock) navUnlock.addEventListener('click', (e) => { e.preventDefault(); openUnlockModal(); });
+
+
     const unlockModal = document.getElementById('unlockModal');
     if (unlockModal) {
       unlockModal.querySelectorAll('[data-close-unlock]').forEach(el => {
@@ -2352,40 +2358,11 @@
               </div>`).join('')}
           </div>` : ''}
 
-        <div style="margin-top:20px;text-align:center;">
-          <button id="searchMlsbdBtn" style="width:100%;max-width:440px;padding:14px 20px;border-radius:12px;font-weight:700;font-size:14px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(37,99,235,0.35);">
-            🔍 MLSBD / FreeDrive এ সম্পূর্ণ মুভি ও সব এপিসোড লিংক খুঁজুন
-          </button>
-        </div>
-        ${downloads.length ? '' : `<div style="margin-top:16px;text-align:center;padding:12px;color:var(--text-muted);font-size:13px">এই সোর্সে শুধু প্রিভিউ উপলব্ধ আছে। সম্পূর্ণ মুভি বা সব এপিসোডের জন্য উপরের বাটনে চাপ দিন।</div>`}
-        <div style="margin-top:20px;text-align:center;padding-bottom:8px">
-          <a href="https://t.me/skmovies" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;background:rgba(30,136,229,0.12);border:1.5px solid rgba(30,136,229,0.3);color:#42a5f5;padding:12px 24px;border-radius:999px;font-family:var(--font-primary);font-weight:700;font-size:14px;text-decoration:none">&#128242; Join Telegram for Updates</a>
-        </div>
       </div>
     `;
     applyPlayerModeUI();
-
-    const searchBtn = dom.modalBody.querySelector('#searchMlsbdBtn');
-    if (searchBtn) {
-      searchBtn.onclick = () => {
-        const queryTitle = prettyTitle(title).replace(/\s*S\d+(-S\d+)?$/i, '').trim();
-        closeModal({ pushState: false });
-        state.source = 'mlsbd';
-        localStorage.setItem('skm.source', 'mlsbd');
-        applySourceUI();
-        state.view = 'search';
-        state.searchQuery = queryTitle;
-        dom.searchInput.value = queryTitle;
-        dom.searchClear.hidden = false;
-        state.page = 1;
-        state.items = [];
-        updateSectionHead();
-        setActiveNav('');
-        loadList();
-        toast(`MLSBD এ "${queryTitle}" সার্চ করা হচ্ছে…`, 'info');
-      };
-    }
   }
+
 
   function updateMetaTag(property, content) {
     let meta = document.querySelector(`meta[property="${property}"], meta[name="${property}"]`);
@@ -2659,11 +2636,13 @@
     if (!isSavelinks && !isFdmLink) {
       const isZip = /\.zip\b/i.test(savelinksUrl) || savelinksUrl.includes('.zip');
       if (isZip) { toast('ZIP ডাউনলোড শুরু হচ্ছে…', 'success'); window.open(savelinksUrl, '_blank'); return; }
-      const isDirectDownloadHost = /k2s\.cc|keep2share|nitroflare|alterupload|1fichier|filebee|gofile|vikingfile|megaup|fastdl/i.test(savelinksUrl);
+      const isDirectDownloadHost = /k2s\.cc|keep2share|nitroflare|alterupload|1fichier|filebee|gofile|vikingfile|megaup|fastdl|krx18/i.test(savelinksUrl);
       if (isDirectDownloadHost) {
-        toast('ডাউনলোড শুরু হচ্ছে…', 'success');
+        toast('ডাউনলোড লিংক খোলা হচ্ছে…', 'success');
+        window.open(savelinksUrl, '_blank');
         return;
       }
+
 
       const isVideo = /\.(mp4|mkv|m3u8|webm)\b/i.test(savelinksUrl);
       const isIntermediateDlHost = /hubcdn\.sbs|hubdrive\.(tips|com|net)|gadgetsweb\.xyz|hdstream4u\.com|hubstream\.art|hubcloud\.(foo|lol|com)|gdflix\.(dev|dad|com|io)|filepress\.(baby|com)|gdtot\.(dad|com|dev)|gdlink\.dev|multidownload\.website|busycdn\.xyz|indexserver\.site|multicloudlinks/i.test(savelinksUrl);
