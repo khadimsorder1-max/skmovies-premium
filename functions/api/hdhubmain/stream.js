@@ -35,6 +35,29 @@ export async function onRequest(context) {
   }
 }
 
+function unpackDeanEdwards(code) {
+  try {
+    var m = code.match(/}\s*\(\s*'(.*?)'\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*'(.*?)'\.split\('\|'\)/);
+    if (!m) return '';
+    var p = m[1];
+    var a = parseInt(m[2], 10);
+    var c = parseInt(m[3], 10);
+    var k = m[4].split('|');
+    function unbase(n) {
+      return (n < a ? '' : unbase(Math.floor(n / a))) + ((n = n % a) > 35 ? String.fromCharCode(n + 29) : n.toString(36));
+    }
+    var count = c;
+    while (count--) {
+      if (k[count]) {
+        var word = unbase(count);
+        var re = new RegExp('\\b' + word + '\\b', 'g');
+        p = p.replace(re, k[count]);
+      }
+    }
+    return p;
+  } catch(e) { return ''; }
+}
+
 async function resolveDownloadHost(target) {
   try {
     // 1. HDStream4U / Morencius Unpacker
@@ -55,9 +78,7 @@ async function resolveDownloadHost(target) {
         var html2 = await r2.text();
         var packedM = html2.match(/eval\(function\(p,a,c,k,e,d\)[\s\S]*?\.split\('\|'\)\)\)/);
         if (packedM) {
-          var code = packedM[0];
-          // Unpack packed JS code
-          var unpacked = Function('"use strict"; return (' + code.replace(/^eval/, '') + ')')();
+          var unpacked = unpackDeanEdwards(packedM[0]);
           var m3u8Matches = [...unpacked.matchAll(/(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/gi)].map(function(m) { return m[1]; });
           var relMatches = [...unpacked.matchAll(/"\/stream\/[^"]+\.m3u8"/gi)].map(function(m) { return 'https://morencius.com' + m[0].replace(/"/g, ''); });
           var allM3u8 = m3u8Matches.concat(relMatches);
@@ -67,6 +88,7 @@ async function resolveDownloadHost(target) {
         }
       }
     }
+
 
     // 2. Hubstream.art (Watch Player 2) - adfree sandbox embed
     if (/hubstream\.art/i.test(target)) {
