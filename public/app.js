@@ -1396,8 +1396,10 @@
     { id: 'hdhubmain', label: 'HDHub Main', toast: 'HDHub Main সোর্সে চলে গেছে' },
     { id: 'moviebox', label: 'MovieBox', toast: 'MovieBox সোর্সে চলে গেছে' },
     { id: 'fibwatch', label: 'Fibwatch', toast: 'Fibwatch.art সোর্সে চলে গেছে' },
+    { id: 'fojik', label: 'Fojik.site', toast: 'Fojik.site সোর্সে চলে গেছে' },
     { id: 'krx18', label: 'KRX18', toast: 'KRX18.com সোর্সে চলে গেছে' },
   ];
+
 
   function isKrx18Unlocked() {
     return localStorage.getItem('skm.krx18_unlocked') === '1';
@@ -2619,11 +2621,38 @@
     return typeof u === 'string' && /^https?:\/\//i.test(u);
   }
 
-  async function resolveAndOpenPlayer(savelinksUrl, title, quality, size) {
+  async function resolveAndOpenPlayer(savelinksUrl, title, quality, size, fojikFu, fojikFn) {
+    if (fojikFu && fojikFn) {
+      toast('Fojik ডাউনলোড লিংক খোলা হচ্ছে…', 'success');
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = savelinksUrl || 'https://search.technews24.site/blog.php';
+      form.target = '_blank';
+      form.rel = 'noreferrer noopener';
+
+      const input1 = document.createElement('input');
+      input1.type = 'hidden';
+      input1.name = 'FU';
+      input1.value = fojikFu;
+      form.appendChild(input1);
+
+      const input2 = document.createElement('input');
+      input2.type = 'hidden';
+      input2.name = 'FN';
+      input2.value = fojikFn;
+      form.appendChild(input2);
+
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
+      return;
+    }
+
     if (!isSafeUrl(savelinksUrl)) {
       toast('অগ্রহণযোগ্য লিংক।', 'error');
       return;
     }
+
     pendingResolveId++;
     const myId = pendingResolveId;
 

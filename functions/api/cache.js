@@ -117,7 +117,8 @@ export async function onRequestGet({ request, env }) {
   if (path === 'home') path = 'latest';
 
   // Validate src
-  const VALID_SOURCES = ['mlsbd', 'fdm', 'hdhub4u', 'hdhubmain', 'moviebox', 'fibwatch', 'krx18'];
+  const VALID_SOURCES = ['mlsbd', 'fdm', 'hdhub4u', 'hdhubmain', 'moviebox', 'fibwatch', 'krx18', 'fojik'];
+
   if (!VALID_SOURCES.includes(src)) {
     return jsonResponse({ ok: false, error: 'Invalid source' }, 400);
   }
