@@ -1435,24 +1435,60 @@
       });
       const unlockBtn = dom.sourcesSheet.querySelector('#unlockSourceBtn');
       if (unlockBtn) {
-        unlockBtn.addEventListener('click', () => promptKrx18Unlock());
+        unlockBtn.addEventListener('click', () => openUnlockModal());
+      }
+    }
+
+    const unlockModal = document.getElementById('unlockModal');
+    if (unlockModal) {
+      unlockModal.querySelectorAll('[data-close-unlock]').forEach(el => {
+        el.addEventListener('click', () => closeUnlockModal());
+      });
+      const submitBtn = unlockModal.querySelector('#submitUnlockBtn');
+      if (submitBtn) submitBtn.addEventListener('click', () => submitUnlockCode());
+      const input = unlockModal.querySelector('#unlockCodeInput');
+      if (input) {
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') submitUnlockCode();
+        });
       }
     }
   }
 
-  function promptKrx18Unlock() {
-    const code = prompt('🔑 Secret Unlock Code লিখুন:');
-    if (!code) return;
-    if (code.trim().toLowerCase() === 'krx18') {
+  function openUnlockModal() {
+    const modal = document.getElementById('unlockModal');
+    if (!modal) return;
+    modal.hidden = false;
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+    const input = document.getElementById('unlockCodeInput');
+    if (input) { input.value = ''; setTimeout(() => input.focus(), 100); }
+  }
+
+  function closeUnlockModal() {
+    const modal = document.getElementById('unlockModal');
+    if (!modal) return;
+    modal.hidden = true;
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  function submitUnlockCode() {
+    const input = document.getElementById('unlockCodeInput');
+    const code = input ? input.value.trim().toLowerCase() : '';
+    if (code === 'krx18') {
       localStorage.setItem('skm.krx18_unlocked', '1');
-      toast('🔓 Secret Source UNLOCKED!\nKRX18 সোর্স আনলক করা হয়েছে।', 'success', 4000);
+      closeUnlockModal();
+      closeSourcesSheet();
+      toast('🔓 Secret Source UNLOCKED!\nKRX18 সোর্স সফলভাবে আনলক করা হয়েছে।', 'success', 4000);
       const krxBtn = document.getElementById('krx18SourceBtn');
       if (krxBtn) krxBtn.style.display = 'flex';
       switchSource('krx18');
     } else {
-      toast('❌ ভুল কোড! গোপন সোর্স আনলক করা সম্ভব হয়নি।', 'error', 3000);
+      toast('❌ ভুল Unlock Code! (পাসকোড: krx18)', 'error', 3000);
     }
   }
+
 
   function openSourcesSheet() {
     if (!dom.sourcesSheet) { toggleSource(); return; }
