@@ -2790,7 +2790,20 @@
     }
 
     if (!isSavelinks && !isFdmLink) {
-      const isDirectHost = /k2s\.cc|keep2share|nitroflare|alterupload|1fichier|filebee|gofile|vikingfile|megaup|fastdl|pixeldrain|vcloud/i.test(savelinksUrl);
+      // MultiCloud / MultiDownload instant resolution: transform /view/<id> to direct /dl/<id> and /player.php/?v=<id>
+      const mcMatch = savelinksUrl.match(/(https?:\/\/[^\/]*multicloud[^\/]*)\/view\/([a-zA-Z0-9]+)/i) ||
+                      savelinksUrl.match(/(https?:\/\/[^\/]*multidownload[^\/]*)\/view\/([a-zA-Z0-9]+)/i);
+      if (mcMatch) {
+        const baseUrl = mcMatch[1];
+        const id = mcMatch[2];
+        const dlUrl = `${baseUrl}/dl/${id}`;
+        const playerUrl = `${baseUrl}/player.php/?v=${id}`;
+        recordUrl(quality || 'DL', dlUrl, title);
+        openPlayerSheet(dlUrl, title, [playerUrl]);
+        return;
+      }
+
+      const isDirectHost = /k2s\.cc|keep2share|nitroflare|alterupload|1fichier|filebee|gofile|vikingfile|megaup|fastdl|pixeldrain|vcloud|dr\d+\.multidownload/i.test(savelinksUrl);
       if (isDirectHost) {
         toast('ডাউনলোড শুরু হচ্ছে…', 'success');
         window.open(savelinksUrl, '_blank');
