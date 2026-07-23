@@ -220,6 +220,7 @@ async function resolveSavelinks(savelinksUrl) {
     savelinksUrl,
     source: 'mlsbd',
     fallback: uniqDirect.length === 0 ? 'No direct video URLs found; returning intermediate page URLs' : null,
+    v: '4.0.0', // to verify deploy
   };
 }
 
