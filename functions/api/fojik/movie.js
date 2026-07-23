@@ -43,7 +43,14 @@ export async function onRequest(context) {
     var cleanSlug = slug.replace(/^https?:\/\/[^\/]+\//, '').replace(/^movie\//, '').replace(/\/$/, '');
     var candidateUrls = slug.startsWith('http') 
       ? [slug] 
-      : [`https://fojik.site/movie/${cleanSlug}/`, `https://fojik.site/${cleanSlug}/`];
+      : [
+          `https://fojik.site/movie/${cleanSlug}/`,
+          `https://fojik.site/${cleanSlug}/`,
+          `https://fojik.site/movie/${slug}/`,
+          `https://fojik.site/${slug}/`,
+          `https://fojik.site/movie/${cleanSlug}`,
+          `https://fojik.site/${cleanSlug}`
+        ];
 
     var resp = null;
     var targetUrl = candidateUrls[0];
@@ -52,6 +59,7 @@ export async function onRequest(context) {
       var u = candidateUrls[i];
       try {
         var r = await fetch(u, {
+          redirect: 'follow',
           headers: {
             'User-Agent': UA,
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -60,7 +68,7 @@ export async function onRequest(context) {
         });
         if (r.ok) {
           resp = r;
-          targetUrl = u;
+          targetUrl = r.url || u;
           break;
         }
       } catch(e) {}

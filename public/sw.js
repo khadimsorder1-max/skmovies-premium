@@ -1,4 +1,5 @@
-const VERSION = 'skm-v4.12.0';
+const VERSION = 'skm-v4.11.2';
+
 
 
 
@@ -75,6 +76,11 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
+  // Bypass SW for stream proxy requests (HTTP 206 byte ranges)
+  if (isSameOrigin && url.pathname.startsWith('/api/proxy')) {
+    return;
+  }
+
   // /api/img — cache-first with limit
   if (isSameOrigin && url.pathname === '/api/img') {
     e.respondWith(cacheFirstWithLimit(request, IMG_CACHE, IMG_CACHE_MAX_ENTRIES));
@@ -85,10 +91,10 @@ self.addEventListener('fetch', (e) => {
   if (isSameOrigin && url.pathname.startsWith('/api/')) {
     e.respondWith(
       fetch(request).then((res) => {
-        if (res.ok) {
+        if (res.ok && res.status === 200) {
           const c = res.clone();
           caches.open(RUNTIME_CACHE).then((cache) => {
-            cache.put(request, c);
+            cache.put(request, c).catch(() => {});
             trimCache(RUNTIME_CACHE, RUNTIME_CACHE_MAX_ENTRIES);
           });
         }
@@ -105,8 +111,8 @@ async function cacheFirstWithLimit(request, cacheName, maxEntries) {
   if (cached) return cached;
   try {
     const res = await fetch(request);
-    if (res.ok) {
-      cache.put(request, res.clone());
+    if (res.ok && res.status === 200) {
+      cache.put(request, res.clone()).catch(() => {});
       trimCache(cacheName, maxEntries);
     }
     return res;

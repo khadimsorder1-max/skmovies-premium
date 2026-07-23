@@ -2397,9 +2397,12 @@
   }
 
   function closeModal({ pushState = true } = {}) {
+    if (document.activeElement && document.activeElement !== document.body) {
+      try { document.activeElement.blur(); } catch (_) {}
+    }
+    releaseFocus();
     dom.modal.hidden = true; dom.modal.style.display = 'none'; dom.modal.setAttribute('aria-hidden', 'true');
     scrollLock.unlock();
-    releaseFocus();
     state.currentMovieSlug = null;
     const card = dom.modal.querySelector('.modal__card');
     if (card) card.scrollTop = 0;
