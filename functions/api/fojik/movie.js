@@ -44,12 +44,12 @@ export async function onRequest(context) {
     var candidateUrls = slug.startsWith('http') 
       ? [slug] 
       : [
+          `https://fojik.com/movie/${cleanSlug}/`,
+          `https://fojik.com/${cleanSlug}/`,
           `https://fojik.site/movie/${cleanSlug}/`,
           `https://fojik.site/${cleanSlug}/`,
           `https://fojik.site/movie/${slug}/`,
-          `https://fojik.site/${slug}/`,
-          `https://fojik.site/movie/${cleanSlug}`,
-          `https://fojik.site/${cleanSlug}`
+          `https://fojik.site/${slug}/`
         ];
 
     var resp = null;
