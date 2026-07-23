@@ -486,10 +486,119 @@ async function main() {
       if (src === 'moviebox') await buildMoviebox();
       else if (src === 'hdhub4u') await buildHDHub('hdhub4u', HDHUB4U_HOSTS);
       else if (src === 'hdhubmain') await buildHDHub('hdhubmain', HDHUBMAIN_HOSTS);
+      else if (src === 'fojik') await buildFojikDirect();
       else await buildGenericSource(src);
     } catch(e) { console.error('FATAL ' + src + ': ' + e.message); }
   }
   console.log('\n✓ Cache build complete!');
+}
+
+async function buildFojikDirect() {
+  console.log('\n=== Building cache: fojik (Direct Scrape) ===');
+  var allSlugs = new Set();
+  var baseHost = 'https://fojik.site';
+
+  for (var page = 1; page <= PAGES_PER_SOURCE; page++) {
+    try {
+      var url = page === 1 ? baseHost + '/' : baseHost + '/page/' + page + '/';
+      var r = await fetchRaw(url);
+      if (r.status >= 400) break;
+      var items = parseFojikListDirect(r.body);
+      if (items.length === 0) break;
+      var payload = { ok: true, page: page, items: items, hasMore: items.length >= 12, source: 'fojik', ts: Date.now() };
+      var filename = 'fojik/latest' + (page > 1 ? '-' + page : '') + '.json';
+      await githubPutFile(filename, JSON.stringify(payload), 'cache: fojik page ' + page);
+      items.forEach(function(it) { if (it.slug) allSlugs.add(it.slug); });
+      console.log('  ✓ ' + filename + ' (' + items.length + ' items, total: ' + allSlugs.size + ')');
+      await sleep(1000);
+    } catch(e) { console.warn('  ✗ fojik page ' + page + ': ' + e.message); break; }
+  }
+
+  try {
+    var r1 = await fetchRaw(baseHost + '/');
+    if (r1.status === 200) {
+      var titems = parseFojikListDirect(r1.body);
+      await githubPutFile('fojik/trending.json', JSON.stringify({ ok: true, page: 1, items: titems, hasMore: true, source: 'fojik', ts: Date.now() }), 'cache: fojik trending');
+      console.log('  ✓ fojik/trending.json (' + titems.length + ' items)');
+    }
+  } catch(e) {}
+
+  var slugs = Array.from(allSlugs).slice(0, DETAILS_PER_SOURCE);
+  console.log('  → Fetching ' + slugs.length + ' fojik movie details...');
+  var tasks = slugs.map(function(slug) {
+    return async function() {
+      var mUrl = baseHost + '/movie/' + slug + '/';
+      var r = await fetchRaw(mUrl);
+      if (r.status !== 200) {
+        mUrl = baseHost + '/' + slug + '/';
+        r = await fetchRaw(mUrl);
+      }
+      if (r.status === 200) {
+        var movie = parseFojikMoviePageDirect(r.body, mUrl, slug);
+        var safe = slug.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 200);
+        var payload = { ok: true, movie: movie, ts: Date.now() };
+        await githubPutFile('fojik/movie/' + safe + '.json', JSON.stringify(payload), 'cache: fojik movie');
+      }
+      await sleep(500);
+    };
+  });
+  var res = await runWithConcurrency(tasks, CONCURRENCY);
+  console.log('  ✓ fojik details: ' + res.ok + ' ok, ' + res.fail + ' fail');
+}
+
+function parseFojikListDirect(html) {
+  var items = [];
+  var seen = new Set();
+  var itemRe = /<article[^>]*>([\s\S]*?)<\/article>|<div[^>]*class="[^"]*(?:result-item|item|post|entry)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
+  var m;
+  while ((m = itemRe.exec(html)) !== null) {
+    var block = m[1] || m[2];
+    var titleM = block.match(/<div[^>]*class="title"[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i) ||
+                 block.match(/<h[234][^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i) ||
+                 block.match(/<a[^>]+href="(https?:\/\/[^"]*\/(?:movie|series)\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/i) ||
+                 block.match(/<a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
+    var imgM = block.match(/<img[^>]+src="([^"]+)"/i) || block.match(/data-src="([^"]+)"/i);
+    if (!titleM) continue;
+    var rawUrl = titleM[1];
+    var title = titleM[2].replace(/<[^>]+>/g, '').trim();
+    if (!rawUrl || title.length < 3 || title.toLowerCase() === 'movie') continue;
+    var sm = rawUrl.match(/\/(?:movie|series)\/([^/]+)/i) || rawUrl.match(/\/([^/]+)\/?$/i);
+    var slug = sm ? sm[1] : '';
+    if (!slug || slug === 'movie' || slug === 'genre' || seen.has(slug)) continue;
+    seen.add(slug);
+    var img = imgM ? imgM[1] : '';
+    if (img.startsWith('//')) img = 'https:' + img;
+    var qM = title.match(/(480p|720p|1080p|2160p|4k|hdrip|web-dl|bluray|hevc)/i);
+    var yM = title.match(/\b(19\d{2}|20\d{2})\b/);
+    items.push({ id: slug, slug: slug, title: title, poster: img, quality: qM ? qM[1].toUpperCase() : 'HD', year: yM ? yM[1] : '', rating: '', source: 'fojik', url: rawUrl });
+  }
+  return items;
+}
+
+function parseFojikMoviePageDirect(html, targetUrl, slug) {
+  var titleM = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  var title = titleM ? titleM[1].replace(/<[^>]+>/g, '').trim() : slug;
+  var posterM = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i) || html.match(/<img[^>]+src="([^"]+)"/i);
+  var poster = posterM ? posterM[1] : '';
+  var storyM = html.match(/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+  var storyline = storyM ? storyM[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 500).trim() : '';
+
+  var downloads = [];
+  var formRe = /<form[^>]*action=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/form>/gi;
+  var fm;
+  while ((fm = formRe.exec(html)) !== null) {
+    var action = fm[1];
+    var formInner = fm[2];
+    if (/FU/i.test(formInner) && /FN/i.test(formInner)) {
+      var fuM = formInner.match(/name=['"]FU['"]\s+value=['"]([^'"]+)['"]/i);
+      var fnM = formInner.match(/name=['"]FN['"]\s+value=['"]([^'"]+)['"]/i);
+      var fu = fuM ? fuM[1] : '';
+      var fn = fnM ? fnM[1] : '';
+      downloads.push({ label: 'Fojik Download', url: action, savelinks_url: action, action: action, fu: fu, fn: fn, fojikFu: fu, fojikFn: fn, quality: '1080P', host: 'Fojik Host', isFojikForm: true });
+    }
+  }
+
+  return { id: slug, slug: slug, title: title, poster: poster, storyline: storyline, genres: [], downloads: downloads, source: 'fojik', url: targetUrl };
 }
 
 main().catch(function(e) { console.error('Fatal:', e); process.exit(1); });

@@ -61,7 +61,7 @@ export async function onRequest(context) {
         headers: {
           'User-Agent': UA,
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Referer': candidateDomains[i] + '/',
+          'Accept-Language': 'en-US,en;q=0.9',
         },
       });
 
