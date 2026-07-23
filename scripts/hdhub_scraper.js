@@ -6,20 +6,24 @@ const KV_NAMESPACE_ID = process.env.KV_NAMESPACE_ID;
 
 const DOMAIN = 'https://new3.hdhub4u.cl';
 
-async function fetchHtml(url) {
+async function fetchHtml(url, redirectCount = 0) {
+  if (redirectCount > 5) throw new Error('Too many redirects: ' + url);
   return new Promise((resolve, reject) => {
-    https.get(url, {
+    const req = https.get(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
-      }
+      },
+      timeout: 12000
     }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        return fetchHtml(res.headers.location).then(resolve).catch(reject);
+        return fetchHtml(res.headers.location, redirectCount + 1).then(resolve).catch(reject);
       }
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => resolve(data));
-    }).on('error', reject);
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Fetch timeout for ' + url)); });
   });
 }
 
@@ -55,25 +59,60 @@ async function parsePage(html) {
   return items;
 }
 
-const { exec } = require('child_process');
 const fs = require('fs');
 
 async function uploadToKV(key, value) {
-  const tempFile = `temp_${key}.json`;
-  fs.writeFileSync(tempFile, JSON.stringify(value));
-  const command = `npx wrangler kv:key put --namespace-id "054063fc418f417ab43e054269b4084f" "${key}" --path "${tempFile}"`;
-  
-  return new Promise((resolve, reject) => {
-    exec(command, (error, stdout, stderr) => {
-      try { fs.unlinkSync(tempFile); } catch (e) {}
-      if (error) {
-        console.error(`Failed to upload ${key} via Wrangler`);
+  const accountId = process.env.CF_ACCOUNT_ID;
+  const apiToken = process.env.CF_API_TOKEN || process.env.CLOUDFLARE_API_TOKEN;
+  const namespaceId = process.env.KV_NAMESPACE_ID || '054063fc418f417ab43e054269b4084f';
+
+  if (!accountId || !apiToken) {
+    console.warn(`[KV] Skipping upload of ${key}: CF_ACCOUNT_ID or CF_API_TOKEN missing`);
+    return false;
+  }
+
+  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${namespaceId}/values/${encodeURIComponent(key)}`;
+  const body = typeof value === 'string' ? value : JSON.stringify(value);
+
+  return new Promise((resolve) => {
+    try {
+      const u = new URL(url);
+      const req = https.request(u, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${apiToken}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+        },
+        timeout: 15000,
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            console.log(`Successfully uploaded ${key} to Cloudflare KV`);
+            resolve(true);
+          } else {
+            console.error(`KV upload failed for ${key}: HTTP ${res.statusCode} ${data.slice(0, 100)}`);
+            resolve(false);
+          }
+        });
+      });
+      req.on('error', (err) => {
+        console.error(`KV upload error for ${key}:`, err.message);
         resolve(false);
-      } else {
-        console.log(`Successfully uploaded ${key} to KV via Wrangler`);
-        resolve(true);
-      }
-    });
+      });
+      req.on('timeout', () => {
+        req.destroy();
+        console.error(`KV upload timeout for ${key}`);
+        resolve(false);
+      });
+      req.write(body);
+      req.end();
+    } catch (e) {
+      console.error(`KV upload exception for ${key}:`, e.message);
+      resolve(false);
+    }
   });
 }
 

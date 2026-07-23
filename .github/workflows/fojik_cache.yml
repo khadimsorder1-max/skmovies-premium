@@ -19,11 +19,15 @@ jobs:
           node-version: '22'
 
       - name: Checkout skmovies-cache repo
+        continue-on-error: true
         uses: actions/checkout@v4
         with:
           repository: khadimsorder1-max/skmovies-cache
-          token: ${{ secrets.GH_PAT_TOKEN || secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PAT_TOKEN || secrets.GH_PAT || secrets.GH_TOKEN || secrets.PAT_TOKEN || secrets.PERSONAL_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}
           path: skmovies-cache-out
+
+      - name: Ensure output directory exists
+        run: mkdir -p ./skmovies-cache-out/fojik
 
       - name: Scrape Fojik.site directly and populate cache
         run: node scripts/populate_fojik_cache.js
@@ -34,12 +38,16 @@ jobs:
 
       - name: Commit and push to cache repo
         env:
-          PAT_TOKEN: ${{ secrets.GH_PAT_TOKEN || secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          PAT_TOKEN: ${{ secrets.GH_PAT_TOKEN || secrets.GH_PAT || secrets.GH_TOKEN || secrets.PAT_TOKEN || secrets.PERSONAL_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
+          if [ ! -d "skmovies-cache-out/.git" ]; then
+            echo "::warning::skmovies-cache-out is not a git repository. Check repository secret permissions."
+            exit 0
+          fi
           cd skmovies-cache-out
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add fojik/
           git diff --staged --quiet && echo "No changes" && exit 0
-          git commit -m "fojik: Auto cache refresh $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          git push "https://x-access-token:${PAT_TOKEN}@github.com/khadimsorder1-max/skmovies-cache.git" main
+          git commit -m "fojik: Auto cache refresh $(date -u +%Y-%m-%dT%H:%M:%SZ)" || exit 0
+          git push "https://x-access-token:${PAT_TOKEN}@github.com/khadimsorder1-max/skmovies-cache.git" main || echo "::warning::Push to cache repo failed. Please verify GH_PAT_TOKEN in repository secrets."

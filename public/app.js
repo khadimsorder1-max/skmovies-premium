@@ -1573,6 +1573,7 @@
     dom.searchInput.value = '';
     dom.searchClear.hidden = true;
 
+    renderFilters();
     updateSectionHead();
     loadFeatured();
     loadList();
@@ -1719,11 +1720,19 @@
     } catch { dom.featuredSection.hidden = true; }
   }
 
-  /* ─── Filters ───────────────────────────────────────────────────────── */
+  /* ─── Filters / Categories ─────────────────────────────────────────────── */
   function renderFilters() {
-    dom.filtersScroll.innerHTML = FILTERS.map((f) =>
-      `<button class="pill ${f.id === state.filter ? 'is-active' : ''}" data-filter="${f.id}">${escapeHtml(f.label)}</button>`
-    ).join('');
+    if (!dom.filtersScroll) return;
+    const cats = getCategories();
+    const isAllActive = state.view === 'latest' || state.view === 'trending' || state.view === 'south' || state.view === 'south-hindi';
+
+    let html = `<button class="pill ${isAllActive ? 'is-active' : ''}" data-cat-slug="" data-cat-name="All">All</button>`;
+    html += cats.map((c) => {
+      const isActive = state.view === 'category' && state.categorySlug === c.slug;
+      return `<button class="pill ${isActive ? 'is-active' : ''}" data-cat-slug="${escapeHtml(c.slug)}" data-cat-name="${escapeHtml(c.name)}">${escapeHtml(c.name)}</button>`;
+    }).join('');
+
+    dom.filtersScroll.innerHTML = html;
   }
   function setFilter(filterId) {
     if (state.filter === filterId && state.view === 'latest') return;
@@ -3577,7 +3586,33 @@
     });
     dom.filtersScroll.addEventListener('click', (e) => {
       const b = e.target.closest('.pill');
-      if (b) { haptic(HAPTIC.tap); const fid = b.getAttribute('data-filter'); setTimeout(() => setFilter(fid), 0); }
+      if (!b) return;
+      haptic(HAPTIC.tap);
+      const catSlug = b.getAttribute('data-cat-slug');
+      const catName = b.getAttribute('data-cat-name') || b.textContent.trim();
+      const fid = b.getAttribute('data-filter');
+
+      if (catSlug !== null) {
+        if (!catSlug) {
+          if (state.view === 'latest' && state.filter === 'all') return;
+          state.view = 'latest';
+          state.filter = 'all';
+          state.categorySlug = '';
+          state.categoryName = '';
+          state.page = 1;
+          state.items = [];
+          state.hasMore = true;
+          renderFilters();
+          updateSectionHead();
+          setActiveNav('latest');
+          loadList();
+        } else {
+          if (state.view === 'category' && state.categorySlug === catSlug) return;
+          switchCategory(catSlug, catName);
+        }
+      } else if (fid) {
+        setTimeout(() => setFilter(fid), 0);
+      }
     });
     dom.grid.addEventListener('click', (e) => {
       const c = e.target.closest('.single-post');

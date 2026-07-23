@@ -35,6 +35,8 @@ const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
 // Generic HTTP fetch with redirect follow
 function fetchRaw(url, opts) {
   opts = opts || {};
+  var redirectCount = opts._redirectCount || 0;
+  if (redirectCount > 5) return Promise.reject(new Error('Too many redirects: ' + url));
   return new Promise(function(resolve, reject) {
     var u;
     try { u = new URL(url); } catch(e) { return reject(new Error('Invalid URL: ' + url)); }
@@ -54,7 +56,8 @@ function fetchRaw(url, opts) {
     var req = lib.request(reqOpts, function(res) {
       if ([301,302,303,307,308].indexOf(res.statusCode) !== -1 && res.headers.location) {
         var loc = res.headers.location.startsWith('http') ? res.headers.location : (u.protocol + '//' + u.host + res.headers.location);
-        return fetchRaw(loc, opts).then(resolve).catch(reject);
+        var nextOpts = Object.assign({}, opts, { _redirectCount: redirectCount + 1 });
+        return fetchRaw(loc, nextOpts).then(resolve).catch(reject);
       }
       var body = '';
       res.on('data', function(c) { body += c; });
