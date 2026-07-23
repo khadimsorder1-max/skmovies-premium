@@ -116,11 +116,13 @@
         search: '/api/fojik/list?type=search',
         trending: buildCacheApi('latest'),
         resolve: '/api/resolve',
+        download: '/api/fojik/download',  // POST FU+FN to resolve actual download URL
         category: buildCacheApi('category'),
         img: '/api/img',
         notice: '/api/notice',
       };
     }
+
     if (src === 'krx18') {
 
       return {

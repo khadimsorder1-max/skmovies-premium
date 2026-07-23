@@ -107,96 +107,67 @@ function parseFojikMovie(html, targetUrl, slug) {
   }
 
   var downloads = [];
-  // Extract download forms inside download table
-  var rowRe = /<tr[^>]*id=['"]link-\d+['"][^>]*>([\s\S]*?)<\/tr>/gi;
-  var rm;
-  while ((rm = rowRe.exec(html)) !== null) {
-    var rowContent = rm[1];
-    var formM = rowContent.match(/<form[^>]*action=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/form>/i);
-    var qualityM = rowContent.match(/<strong[^>]*class=['"]quality['"][^>]*>([^<]+)<\/strong>/i) || rowContent.match(/(480p|720p|1080p|4k|hevc)/i);
-    var langM = rowContent.match(/<td>\s*(Hindi|English|Tamil|Telugu|Dual Audio|ORG|[A-Z][a-z]+)\s*<\/td>/i);
-    var sizeM = rowContent.match(/<td>\s*(\d+(?:\.\d+)?\s*(?:MB|GB))\s*<\/td>/i);
+  // Fojik uses single-quote attributes: name='FU' value='...'
+  // Extract ALL forms with FU/FN fields
+  var formRe = /<form[^>]*action=['"]([^'"]+)['"][^>]*>([\s\S]{0,3000}?)<\/form>/gi;
+  var fm;
+  while ((fm = formRe.exec(html)) !== null) {
+    var action = fm[1];
+    var inner = fm[2];
+    if (!/name=['"]FU['"]/i.test(inner)) continue;
 
-    var quality = qualityM ? qualityM[1].trim() : '1080p';
-    var lang = langM ? langM[1].trim() : 'Hindi';
-    var size = sizeM ? sizeM[1].trim() : '';
-
-    if (formM) {
-      var action = formM[1];
-      var formInner = formM[2];
-      var fuM = formInner.match(/name=['"]FU['"]\s+value=['"]([^'"]+)['"]/i);
-      var fnM = formInner.match(/name=['"]FN['"]\s+value=['"]([^'"]+)['"]/i);
-
-      var fu = fuM ? fuM[1] : '';
-      var fn = fnM ? fnM[1] : '';
-
-      downloads.push({
-        label: `${quality} • ${lang} Direct Download`,
-        url: action,
-        savelinks_url: action,
-        action: action,
-        fu: fu,
-        fn: fn,
-        fojikFu: fu,
-        fojikFn: fn,
-        quality: quality,
-        size: size,
-        host: 'Fojik Host',
-        isDirect: false,
-        isFojikForm: true,
-      });
+    // Extract all input tags and parse their attributes
+    var inputTags = inner.match(/<input[^>]+>/gi) || [];
+    var fu = '', fn = '';
+    for (var j = 0; j < inputTags.length; j++) {
+      var tag = inputTags[j];
+      var nameM = tag.match(/name=['"]([^'"]+)['"]/i);
+      var valM = tag.match(/value=['"]([^'"]*)['"](?=[^>]*>|\s*\/>)/i) || tag.match(/value=['"]([^'"]*)['"]/);
+      if (!nameM || !valM) continue;
+      var attrName = nameM[1].toUpperCase();
+      if (attrName === 'FU') fu = valM[1];
+      if (attrName === 'FN') fn = valM[1].replace(/&#\d+;/g, function(e) { return String.fromCharCode(parseInt(e.slice(2))); }).replace(/&amp;/g, '&');
     }
+
+    if (!fu) continue;
+
+    // Get context for quality/lang/size detection
+    var formCtx = html.slice(Math.max(0, fm.index - 600), Math.min(html.length, fm.index + fm[0].length + 200));
+    var qualityM = formCtx.match(/(4K UHD|4K|2160p|1080p|720p|480p|WEB-DL|WEBRip|BluRay|HDRip|HEVC)/i);
+    var quality = qualityM ? qualityM[1].toUpperCase() : '1080P';
+    var langM = formCtx.match(/\b(Hindi|English|Tamil|Telugu|Bengali|Korean|Japanese|Malayalam|Kannada|Dual Audio)\b/i);
+    var lang = langM ? langM[1] : '';
+    var sizeM = formCtx.match(/(\d+(?:\.\d+)?\s*(?:MB|GB))/i);
+    var size = sizeM ? sizeM[1] : '';
+    var hostM = formCtx.match(/\b(GDrive|Google Drive|GDRive|Hubcloud|Savelinks|Filepress|GDFlix)\b/i);
+    var host = hostM ? hostM[1] : 'Fojik';
+
+    downloads.push({
+      label: [quality, lang, size].filter(Boolean).join(' \u2022 ') || quality,
+      url: action,
+      savelinks_url: action,
+      action: action,
+      fu: fu,
+      fn: fn,
+      fojikFu: fu,
+      fojikFn: fn,
+      quality: quality,
+      lang: lang,
+      size: size,
+      host: host,
+      isDirect: false,
+      isFojikForm: true,
+    });
   }
 
-  // Global form fallback if table row regex didn't catch forms
-  if (downloads.length === 0) {
-    var formRe = /<form[^>]*action=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/form>/gi;
-    var fm;
-    while ((fm = formRe.exec(html)) !== null) {
-      var action = fm[1];
-      var formInner = fm[2];
-      if (/FU/i.test(formInner) && /FN/i.test(formInner)) {
-        var fuM = formInner.match(/name=['"]FU['"]\s+value=['"]([^'"]+)['"]/i);
-        var fnM = formInner.match(/name=['"]FN['"]\s+value=['"]([^'"]+)['"]/i);
-        var fu = fuM ? fuM[1] : '';
-        var fn = fnM ? fnM[1] : '';
-
-        var formIdx = fm.index;
-        var context = html.slice(Math.max(0, formIdx - 400), Math.min(html.length, formIdx + 400));
-        var qualityM = context.match(/(1080p|720p|480p|2160p|4k|hevc)/i);
-        var sizeM = context.match(/(\d+(?:\.\d+)?\s*(?:MB|GB))/i);
-
-        var quality = qualityM ? qualityM[1].toUpperCase() : '1080P';
-        var size = sizeM ? sizeM[1] : '';
-
-        downloads.push({
-          label: `${quality} Direct Download`,
-          url: action,
-          savelinks_url: action,
-          action: action,
-          fu: fu,
-          fn: fn,
-          fojikFu: fu,
-          fojikFn: fn,
-          quality: quality,
-          size: size,
-          host: 'Fojik Host',
-          isDirect: false,
-          isFojikForm: true,
-        });
-      }
-    }
-  }
-
-
-  // Fallback: search for direct savelinks/gdflix/hubcloud/drive URLs
+  // If no FU forms found, search for any external download links
   if (downloads.length === 0) {
     var aRe = /<a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
     var am;
     while ((am = aRe.exec(html)) !== null) {
       var href = am[1];
       var text = am[2].replace(/<[^>]+>/g, '').trim();
-      if (/savelinks|gdflix|hubcloud|filepress|drive|gdtot|busycdn|indexserver|multicloud|download/i.test(href) || /download/i.test(text)) {
+      if (/savelinks|gdflix|hubcloud|filepress|drive\.google|busycdn|indexserver|multicloud|gdtot/i.test(href) || /download/i.test(text)) {
         downloads.push({
           label: text || 'Download Link',
           url: href,
