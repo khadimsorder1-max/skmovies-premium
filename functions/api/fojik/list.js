@@ -52,6 +52,7 @@ export async function onRequest(context) {
   var candidateDomains = ['https://fojik.site', 'https://fojik.com'];
   var items = [];
 
+  var debugLog = [];
   for (var i = 0; i < candidateDomains.length; i++) {
     var targetUrl = candidateDomains[i] + pathSuffix;
     try {
@@ -64,18 +65,19 @@ export async function onRequest(context) {
         },
       });
 
-      if (resp.ok) {
-        var html = await resp.text();
-        var parsed = parseFojikList(html);
-        if (parsed.length > 0) {
-          items = parsed;
-          break;
-        }
+      var html = await resp.text();
+      var parsed = parseFojikList(html);
+      debugLog.push({ url: targetUrl, status: resp.status, ok: resp.ok, htmlLen: html.length, parsedLen: parsed.length, snippet: html.slice(0, 200) });
+      if (resp.ok && parsed.length > 0) {
+        items = parsed;
+        break;
       }
-    } catch (e) {}
+    } catch (e) {
+      debugLog.push({ url: targetUrl, error: e.message });
+    }
   }
 
-  return json({ ok: true, page: page, items: items, hasMore: items.length >= 12 }, 200, 120);
+  return json({ ok: true, page: page, items: items, hasMore: items.length >= 12, _debug: debugLog }, 200, 120);
 }
 
 function parseFojikList(html) {
