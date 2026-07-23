@@ -109,7 +109,20 @@
         notice: '/api/notice',
       };
     }
+    if (src === 'fojik') {
+      return {
+        latest: buildCacheApi('latest'),
+        movie: buildCacheApi('movie'),
+        search: '/api/fojik/list?type=search',
+        trending: buildCacheApi('latest'),
+        resolve: '/api/resolve',
+        category: buildCacheApi('category'),
+        img: '/api/img',
+        notice: '/api/notice',
+      };
+    }
     if (src === 'krx18') {
+
       return {
         latest: buildCacheApi('latest'),
         movie: buildCacheApi('movie'),
@@ -2355,7 +2368,9 @@
                 <div class="dl-group__grid">
                   ${g.items.map((item) => {
                     const cls = /480/i.test(item.quality) ? 'sd' : /720/i.test(item.quality) ? 'hd' : /1080/i.test(item.quality) ? 'fhd' : 'uhd';
-                    return `<a class="dl-btn dl-btn--${cls}" data-savelinks="${escapeHtml(item.savelinks_url || item.url)}" data-quality="${escapeHtml(item.quality)}" data-size="${escapeHtml(item.size || '')}" href="${escapeHtml(item.savelinks_url || item.url)}" target="_blank" rel="noopener noreferrer"><span class="dl-btn__quality">${escapeHtml(item.host ? item.host + ' ' + (item.quality || 'DL') : (item.quality || 'Download'))}</span>${item.size ? `<span class="dl-btn__size">${escapeHtml(item.size)}</span>` : ''}</a>`;
+                    const fu = item.fu || item.fojikFu || '';
+                    const fn = item.fn || item.fojikFn || '';
+                    return `<a class="dl-btn dl-btn--${cls}" data-savelinks="${escapeHtml(item.savelinks_url || item.url)}" data-quality="${escapeHtml(item.quality)}" data-size="${escapeHtml(item.size || '')}" data-fu="${escapeHtml(fu)}" data-fn="${escapeHtml(fn)}" href="${escapeHtml(item.savelinks_url || item.url)}" target="_blank" rel="noopener noreferrer"><span class="dl-btn__quality">${escapeHtml(item.host ? item.host + ' ' + (item.quality || 'DL') : (item.quality || 'Download'))}</span>${item.size ? `<span class="dl-btn__size">${escapeHtml(item.size)}</span>` : ''}</a>`;
                   }).join('')}
                 </div>
               </div>`).join('')}
@@ -3347,8 +3362,10 @@
         const url = dlBtn.getAttribute('data-savelinks');
         const quality = dlBtn.getAttribute('data-quality');
         const size = dlBtn.getAttribute('data-size') || '';
+        const fu = dlBtn.getAttribute('data-fu') || '';
+        const fn = dlBtn.getAttribute('data-fn') || '';
         const title = prettyTitle(currentModalMovie.title);
-        resolveAndOpenPlayer(url, title, quality, size);
+        resolveAndOpenPlayer(url, title, quality, size, fu, fn);
         return;
       }
       const relatedCard = e.target.closest('.single-post');

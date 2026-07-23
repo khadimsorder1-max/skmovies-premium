@@ -237,6 +237,12 @@ export async function onRequestGet({ request, env }) {
           ? `/api/krx18/category?slug=${encodeURIComponent(slug)}&page=${page}`
           : `/api/krx18/list?type=${path}&page=${page}${slug ? `&slug=${encodeURIComponent(slug)}` : ''}`;
       break;
+    case 'fojik':
+      upstreamUrl = path === 'movie'
+        ? `/api/fojik/movie?slug=${encodeURIComponent(slug)}`
+        : `/api/fojik/list?type=${path === 'trending' ? 'home' : path}&page=${page}${slug ? `&slug=${encodeURIComponent(slug)}` : ''}`;
+      break;
+
   }
 
 

@@ -39,26 +39,35 @@ export async function onRequest(context) {
   } catch(e) {}
 
   // 2. Live scrape from fojik.site
-  var targetUrl = slug.startsWith('http') ? slug : `https://fojik.site/movie/${slug}/`;
-
   try {
-    var resp = await fetch(targetUrl, {
-      headers: {
-        'User-Agent': UA,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Referer': 'https://fojik.site/',
-      },
-    });
+    var cleanSlug = slug.replace(/^https?:\/\/[^\/]+\//, '').replace(/^movie\//, '').replace(/\/$/, '');
+    var candidateUrls = slug.startsWith('http') 
+      ? [slug] 
+      : [`https://fojik.site/movie/${cleanSlug}/`, `https://fojik.site/${cleanSlug}/`];
 
-    if (!resp.ok && !targetUrl.includes('fojik.site/movie/')) {
-      targetUrl = `https://fojik.site/${slug}/`;
-      resp = await fetch(targetUrl, {
-        headers: { 'User-Agent': UA, 'Referer': 'https://fojik.site/' },
-      });
+    var resp = null;
+    var targetUrl = candidateUrls[0];
+
+    for (var i = 0; i < candidateUrls.length; i++) {
+      var u = candidateUrls[i];
+      try {
+        var r = await fetch(u, {
+          headers: {
+            'User-Agent': UA,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Referer': 'https://fojik.site/',
+          },
+        });
+        if (r.ok) {
+          resp = r;
+          targetUrl = u;
+          break;
+        }
+      } catch(e) {}
     }
 
-    if (!resp.ok) {
-      return json({ ok: false, error: 'Movie page return HTTP ' + resp.status }, 404);
+    if (!resp || !resp.ok) {
+      return json({ ok: false, error: 'Movie page returned HTTP ' + (resp ? resp.status : 404) }, 404);
     }
 
     var html = await resp.text();
@@ -120,6 +129,8 @@ function parseFojikMovie(html, targetUrl, slug) {
         action: action,
         fu: fu,
         fn: fn,
+        fojikFu: fu,
+        fojikFn: fn,
         quality: quality,
         size: size,
         host: 'Fojik Host',
@@ -128,6 +139,47 @@ function parseFojikMovie(html, targetUrl, slug) {
       });
     }
   }
+
+  // Global form fallback if table row regex didn't catch forms
+  if (downloads.length === 0) {
+    var formRe = /<form[^>]*action=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/form>/gi;
+    var fm;
+    while ((fm = formRe.exec(html)) !== null) {
+      var action = fm[1];
+      var formInner = fm[2];
+      if (/FU/i.test(formInner) && /FN/i.test(formInner)) {
+        var fuM = formInner.match(/name=['"]FU['"]\s+value=['"]([^'"]+)['"]/i);
+        var fnM = formInner.match(/name=['"]FN['"]\s+value=['"]([^'"]+)['"]/i);
+        var fu = fuM ? fuM[1] : '';
+        var fn = fnM ? fnM[1] : '';
+
+        var formIdx = fm.index;
+        var context = html.slice(Math.max(0, formIdx - 400), Math.min(html.length, formIdx + 400));
+        var qualityM = context.match(/(1080p|720p|480p|2160p|4k|hevc)/i);
+        var sizeM = context.match(/(\d+(?:\.\d+)?\s*(?:MB|GB))/i);
+
+        var quality = qualityM ? qualityM[1].toUpperCase() : '1080P';
+        var size = sizeM ? sizeM[1] : '';
+
+        downloads.push({
+          label: `${quality} Direct Download`,
+          url: action,
+          savelinks_url: action,
+          action: action,
+          fu: fu,
+          fn: fn,
+          fojikFu: fu,
+          fojikFn: fn,
+          quality: quality,
+          size: size,
+          host: 'Fojik Host',
+          isDirect: false,
+          isFojikForm: true,
+        });
+      }
+    }
+  }
+
 
   // Fallback: search for direct savelinks/gdflix/hubcloud/drive URLs
   if (downloads.length === 0) {
