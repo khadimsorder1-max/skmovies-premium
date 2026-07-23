@@ -31,7 +31,7 @@ export async function onRequest(context) {
       var ghText = await ghResp.text();
       if (ghText.trim().startsWith('{')) {
         var ghData = JSON.parse(ghText);
-        if (ghData.ok && ghData.movie) {
+        if (ghData.ok && ghData.movie && Array.isArray(ghData.movie.downloads) && ghData.movie.downloads.length > 0) {
           return json(Object.assign({}, ghData, { _cache: 'github' }), 200, 300);
         }
       }

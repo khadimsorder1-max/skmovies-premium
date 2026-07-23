@@ -169,11 +169,16 @@ export async function onRequestGet({ request, env }) {
       const r = await fetchWithTimeout(ghUrl, { headers: ghHeaders });
       if (r.ok) {
         const data = await r.json();
-        // Cache in KV for 1 hour (edge cache)
-        if (env.SKM_CACHE) {
-          try { env.SKM_CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 3600 }); } catch {}
+        const m = data.movie || data.item || data;
+        const dlList = m ? (m.downloads || m.qualities || m.streams || []) : [];
+        if (path === 'movie' && Array.isArray(dlList) && dlList.length === 0) {
+          console.warn('GitHub cache file had 0 downloads, bypassing cache for live fetch:', githubPath);
+        } else {
+          if (env.SKM_CACHE) {
+            try { env.SKM_CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 3600 }); } catch {}
+          }
+          return jsonResponse(data, 200, 3600);
         }
-        return jsonResponse(data, 200, 3600);
       }
     } catch (e) {
       console.warn('GitHub cache fetch failed:', e.message);
