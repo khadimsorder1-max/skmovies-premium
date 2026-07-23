@@ -3,14 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>HDPlayer Pro — Premium Video Player</title>
+<title>HDPlayer Pro Max — Ultimate Video Player</title>
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 
-<!-- Player libraries — lazy-loaded -->
+<!-- Player CSS Libraries -->
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/video.js@8.23.8/dist/video-js.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.css">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
+
 <script>
 const _libCache = {};
 function _loadLib(name, url) {
@@ -23,14 +25,17 @@ function _loadLib(name, url) {
   });
   return _libCache[name];
 }
-function loadVideojs() { return _loadLib('videojs', 'https://cdn.jsdelivr.net/npm/video.js@8.23.8/dist/video.min.js'); }
-function loadHls() { return _loadLib('Hls', 'https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js'); }
+function loadHls()    { return _loadLib('Hls', 'https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js'); }
+function loadShaka()  { return _loadLib('shaka', 'https://cdn.jsdelivr.net/npm/shaka-player@4.11.2/dist/shaka-player.compiled.min.js'); }
+function loadPlyr()   { return _loadLib('Plyr', 'https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.min.js'); }
+function loadVideojs(){ return _loadLib('videojs', 'https://cdn.jsdelivr.net/npm/video.js@8.23.8/dist/video.min.js'); }
 function loadClappr() { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/clappr@0.4.6/dist/clappr.min.js'); }
+function loadMpegts() { return _loadLib('mpegts', 'https://cdn.jsdelivr.net/npm/mpegts.js@1.8.0/dist/mpegts.min.js'); }
 </script>
 
 <style>
   /* ══════════════════════════════════════════
-     SKIPTV v3.0 PRO DESIGN SYSTEM (DARK THEME)
+     SKIPTV v3.0 PRO MAX DESIGN SYSTEM
      ══════════════════════════════════════════ */
   :root {
     --bg-base: #0D1117;
@@ -41,6 +46,7 @@ function loadClappr() { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/
     --primary-hover: #5da0f4;
     --accent-glow: rgba(61, 142, 240, 0.35);
     --success-color: #22C55E;
+    --warning-color: #F59E0B;
     --danger-color: #EF4444;
     --text-primary: #F5F7FA;
     --text-secondary: #AAB4C0;
@@ -92,7 +98,7 @@ function loadClappr() { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/
 
   .title {
     font-family: var(--font-brand); font-size: 14px; font-weight: 700; color: var(--text-primary);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 380px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 340px;
   }
 
   .topbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
@@ -118,30 +124,33 @@ function loadClappr() { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/
   .ext-btn.vlc { color: #F97316; border-color: rgba(249, 115, 22, 0.3); background: rgba(249, 115, 22, 0.08); }
   .ext-btn.km { color: #A855F7; border-color: rgba(168, 85, 247, 0.3); background: rgba(168, 85, 247, 0.08); }
 
-  /* Controls Overlay */
+  /* Controls Bar */
   .ctrl-bar {
     display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 12px;
     background: var(--bg-surface); border: 1px solid var(--border-color);
   }
   .ctrl-item { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 11px; font-weight: 600; }
-  .ctrl-item input[type=range] { width: 75px; accent-color: var(--primary-color); cursor: pointer; height: 4px; }
-  .ctrl-item select {
+  .ctrl-item input[type=range] { width: 70px; accent-color: var(--primary-color); cursor: pointer; height: 4px; }
+  .ctrl-item select, .ctrl-item button {
     background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color);
-    border-radius: 6px; padding: 4px 6px; font-size: 11px; font-weight: 600; cursor: pointer;
+    border-radius: 6px; padding: 4px 8px; font-size: 11px; font-weight: 600; cursor: pointer;
   }
+  .ctrl-item button:hover { border-color: var(--primary-color); color: var(--primary-color); }
 
   /* ═══ STAGE ═══ */
   .stage { flex: 1; position: relative; background: #000; overflow: hidden; min-height: 0; }
-  .video-js, .player-clappr { width: 100% !important; height: 100% !important; }
-  .video-js { font-size: 13px; }
-  .video-js .vjs-big-play-button {
-    background: var(--primary-color); color: #fff; border: 0; border-radius: 50%;
-    width: 68px; height: 68px; line-height: 68px; font-size: 28px;
-    top: 50%; left: 50%; margin-top: -34px; margin-left: -34px;
-    box-shadow: 0 0 24px var(--accent-glow); transition: transform 0.2s var(--ease-spring);
-  }
-  .video-js .vjs-big-play-button:hover { transform: scale(1.1); background: var(--primary-hover); }
+  .video-js, .player-clappr, .plyr { width: 100% !important; height: 100% !important; }
   .stage iframe { width: 100%; height: 100%; border: 0; display: block; background: #000; }
+
+  /* Toast Notification */
+  .toast-banner {
+    position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+    background: rgba(28, 33, 40, 0.95); border: 1px solid var(--primary-color);
+    color: var(--text-primary); padding: 8px 16px; border-radius: 20px; font-size: 12px;
+    font-weight: 700; z-index: 60; box-shadow: 0 4px 20px var(--accent-glow);
+    display: flex; align-items: center; gap: 8px; backdrop-filter: blur(8px);
+    transition: opacity 0.3s ease;
+  }
 
   /* ═══ LOADING & ERROR STATES ═══ */
   .state-layer {
@@ -175,7 +184,7 @@ function loadClappr() { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/
 
   @media (max-width: 640px) {
     .topbar { padding: 8px 12px; gap: 6px; flex-wrap: wrap; }
-    .title { max-width: 200px; font-size: 13px; }
+    .title { max-width: 180px; font-size: 12px; }
     .ext-btn { padding: 5px 8px; font-size: 10px; }
     .engine-select { padding: 5px 8px; font-size: 10px; }
     .ctrl-bar { display: none !important; }
@@ -184,25 +193,33 @@ function loadClappr() { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/
 </head>
 <body>
 <div class="app">
+  <!-- Toast Notification -->
+  <div class="toast-banner" id="toastBanner" style="display:none">
+    <span id="toastMsg">Auto failover active</span>
+  </div>
+
   <!-- Topbar -->
   <div class="topbar" id="topbar">
     <div class="topbar-left">
       <button class="back-btn" onclick="history.length > 1 ? history.back() : location.replace('/')" aria-label="Back">←</button>
       <div class="title-group">
-        <span class="live-tag">HDPlayer Pro</span>
+        <span class="live-tag" id="liveTag">HDPlayer Pro Max</span>
         <span class="title" id="title">Loading Stream…</span>
       </div>
     </div>
     
     <div class="topbar-right">
-      <!-- Engine Selector -->
+      <!-- Engine Selector (8 Engines) -->
       <select class="engine-select" id="engineSelect" title="Switch Player Engine" onchange="switchEngine(this.value)">
-        <option value="auto">⚡ Auto Engine</option>
+        <option value="auto">⚡ Auto (Smart Engine)</option>
+        <option value="hlsjs">🚀 HLS.js (HLS/m3u8)</option>
+        <option value="shaka">🛡️ Shaka Player (Google)</option>
+        <option value="plyr">✨ Plyr (Ad-free UI)</option>
+        <option value="videojs">🎬 Video.js (Ultra HD)</option>
+        <option value="mpegts">📡 MPEG-TS (Live TS)</option>
+        <option value="clappr">📼 Clappr (Matroska/MKV)</option>
         <option value="native">🌐 Native (HTML5)</option>
-        <option value="hlsjs">🚀 HLS.js</option>
-        <option value="videojs">🎬 Video.js</option>
-        <option value="clappr">📼 Clappr</option>
-        <option value="iframe">🖼️ Iframe (Browser)</option>
+        <option value="iframe">🖼️ Iframe (Browser Fallback)</option>
       </select>
 
       <!-- External Launchers -->
@@ -211,10 +228,20 @@ function loadClappr() { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/
       <a class="ext-btn km"  id="km-btn"  href="#" style="display:none" title="Open in KMPlayer">▶ KM</a>
       <a class="ext-btn"     id="ext-btn" href="#" target="_blank" rel="noopener noreferrer" style="display:none" title="Open raw URL">↗ Open</a>
 
-      <!-- Brightness / Aspect Ratio controls -->
+      <!-- Brightness / Speed / Aspect / PiP controls -->
       <div class="ctrl-bar" id="ctrlBar">
         <label class="ctrl-item" title="Brightness">
           ☀️ <input type="range" id="brightRange" min="0.3" max="1.5" step="0.05" value="1" />
+        </label>
+        <label class="ctrl-item" title="Speed">
+          ⏩
+          <select id="speedSel" onchange="changeSpeed(this.value)">
+            <option value="0.75">0.75x</option>
+            <option value="1" selected>1.0x</option>
+            <option value="1.25">1.25x</option>
+            <option value="1.5">1.5x</option>
+            <option value="2">2.0x</option>
+          </select>
         </label>
         <label class="ctrl-item" title="Aspect Ratio">
           📐
@@ -224,6 +251,9 @@ function loadClappr() { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/
             <option value="fill">Fill</option>
           </select>
         </label>
+        <div class="ctrl-item">
+          <button onclick="togglePiP()" title="Picture in Picture">📺 PiP</button>
+        </div>
       </div>
     </div>
   </div>
@@ -232,8 +262,8 @@ function loadClappr() { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/
   <div class="stage" id="stage" dblclick="toggleFullscreen()">
     <div class="state-layer" id="loading">
       <div class="spinner"></div>
-      <p style="font-family:var(--font-brand);font-weight:700;color:var(--text-primary);">Resolving Direct Stream…</p>
-      <small style="font-size:11px;color:var(--text-muted)">Connecting to high-speed CDN</small>
+      <p style="font-family:var(--font-brand);font-weight:700;color:var(--text-primary);">Connecting to Direct Stream…</p>
+      <small style="font-size:11px;color:var(--text-muted)">Auto retry & Multi-engine active</small>
     </div>
   </div>
 </div>
@@ -246,10 +276,13 @@ function loadClappr() { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/
 
   const params = new URLSearchParams(location.search);
   const rawUrl = params.get('url') || '';
-  const title  = params.get('title') || 'HDPlayer Pro';
+  const title  = params.get('title') || 'HDPlayer Pro Max';
   const poster = params.get('poster') || '';
   let currentEngine = params.get('engine') || 'auto';
   let resolvedUrl = '';
+  let retryCount = 0;
+  const MAX_AUTO_RETRIES = 2;
+  let autoFailoverTimer = null;
   
   document.getElementById('title').textContent = decodeURIComponent(title);
   if(currentEngine !== 'auto') {
@@ -271,9 +304,23 @@ function loadClappr() { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/
   document.addEventListener('click', showTopbar);
   showTopbar();
 
+  function showToast(msg, durationMs = 3000) {
+    const t = document.getElementById('toastBanner');
+    const m = document.getElementById('toastMsg');
+    if (!t || !m) return;
+    m.textContent = msg;
+    t.style.display = 'flex';
+    t.style.opacity = '1';
+    setTimeout(() => {
+      t.style.opacity = '0';
+      setTimeout(() => { t.style.display = 'none'; }, 300);
+    }, durationMs);
+  }
+
   // --- Helpers ---
   function isHls(u) { return /\.m3u[8]?(\?|$)/i.test(u); }
   function isMkv(u) { return /\.mkv(\?|$)/i.test(u); }
+  function isTs(u)  { return /\.ts(\?|$)/i.test(u); }
   function proxyUrl(u) { return '/api/hdhub4u/proxy?url=' + encodeURIComponent(u); }
 
   function setExtBtn(id, href) {
@@ -299,17 +346,41 @@ function loadClappr() { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/
       </div>`;
   }
 
+  // Auto Engine Failover Circuit
+  const ENGINE_FAILOVER_CHAIN = ['hlsjs', 'shaka', 'plyr', 'videojs', 'clappr', 'native', 'iframe'];
+
+  function handlePlaybackFailure(errorName, details) {
+    if (retryCount < MAX_AUTO_RETRIES) {
+      retryCount++;
+      showToast(`🔄 Connection retry (${retryCount}/${MAX_AUTO_RETRIES}) in 1.5s...`, 2000);
+      setTimeout(() => {
+        startPlayback(resolvedUrl, currentEngine);
+      }, 1500);
+      return;
+    }
+
+    // Auto failover to next engine
+    const nextEngine = getNextEngine(currentEngine);
+    showToast(`⚠️ Auto-switching engine to ${nextEngine.toUpperCase()}...`, 3000);
+    autoFailoverTimer = setTimeout(() => {
+      retryCount = 0;
+      switchEngine(nextEngine);
+    }, 2500);
+
+    showError(errorName, `${details} — Auto switching to ${nextEngine.toUpperCase()} in 2.5s`);
+  }
+
   function showError(msg, details) {
     const nextEngine = getNextEngine(currentEngine);
     document.getElementById('stage').innerHTML = `
       <div class="state-layer">
         <div class="err-box">
           <div class="err-icon">⚠️</div>
-          <h2>Playback Alert</h2>
+          <h2>Playback Failure</h2>
           <p>${esc(msg)}</p>
           <div class="err-details">${esc(details)}</div>
           <div class="err-actions">
-            <button onclick="switchEngine('${nextEngine}')">⚡ Switch Engine: ${nextEngine.toUpperCase()}</button>
+            <button onclick="clearTimeout(autoFailoverTimer); switchEngine('${nextEngine}')">⚡ Switch Engine: ${nextEngine.toUpperCase()}</button>
             <a class="secondary" href="vlc://${resolvedUrl}">▶ Open in VLC</a>
             <a class="secondary" href="${resolvedUrl}" target="_blank">↗ Raw Stream</a>
           </div>
@@ -319,15 +390,15 @@ function loadClappr() { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/
   }
 
   function getNextEngine(curr) {
-    const order = ['native', 'hlsjs', 'videojs', 'clappr', 'iframe'];
     if(curr === 'auto') curr = determineBestEngine(resolvedUrl);
-    const idx = order.indexOf(curr);
-    return order[(idx + 1) % order.length];
+    const idx = ENGINE_FAILOVER_CHAIN.indexOf(curr);
+    return ENGINE_FAILOVER_CHAIN[(idx + 1) % ENGINE_FAILOVER_CHAIN.length];
   }
 
   window.switchEngine = function(engine) {
     if(engine === currentEngine && engine !== 'auto') return;
     currentEngine = engine;
+    retryCount = 0;
     document.getElementById('engineSelect').value = engine;
     const pu = new URL(location.href);
     pu.searchParams.set('engine', engine);
@@ -341,6 +412,25 @@ function loadClappr() { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/
     if (v) v.style.objectFit = mode;
   };
 
+  window.changeSpeed = function(val) {
+    const v = document.querySelector('video');
+    if (v) v.playbackRate = parseFloat(val);
+  };
+
+  window.togglePiP = async function() {
+    const v = document.querySelector('video');
+    if (!v) return;
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else if (v.requestPictureInPicture) {
+        await v.requestPictureInPicture();
+      }
+    } catch(e) {
+      showToast('Picture-in-Picture not supported');
+    }
+  };
+
   window.toggleFullscreen = function() {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
@@ -350,10 +440,15 @@ function loadClappr() { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/
   };
 
   function cleanupPlayer() {
+    clearTimeout(autoFailoverTimer);
     try { if (window._hls) window._hls.destroy(); } catch (_) {}
+    try { if (window._shakaPlayer) window._shakaPlayer.destroy(); } catch (_) {}
+    try { if (window._plyr) window._plyr.destroy(); } catch (_) {}
     try { if (window._vjsPlayer) window._vjsPlayer.dispose(); } catch (_) {}
     try { if (window._clappr) window._clappr.destroy(); } catch (_) {}
-    window._hls = null; window._vjsPlayer = null; window._clappr = null;
+    try { if (window._mpegts) window._mpegts.destroy(); } catch (_) {}
+    window._hls = null; window._shakaPlayer = null; window._plyr = null;
+    window._vjsPlayer = null; window._clappr = null; window._mpegts = null;
     document.getElementById('stage').innerHTML = '';
   }
 
@@ -383,8 +478,9 @@ function loadClappr() { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/
 
   function determineBestEngine(u) {
     if (isHls(u)) return 'hlsjs';
+    if (isTs(u))  return 'mpegts';
     if (isMkv(u)) return 'clappr';
-    return 'native';
+    return 'plyr';
   }
 
   function getProxyUrl(u) {
@@ -402,8 +498,11 @@ function loadClappr() { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/
     }
 
     if (engine === 'native') return playNative(url);
-    if (engine === 'hlsjs') return playHlsJs(url);
+    if (engine === 'hlsjs')  return playHlsJs(url);
+    if (engine === 'shaka')  return playShaka(url);
+    if (engine === 'plyr')   return playPlyr(url);
     if (engine === 'videojs') return playVideoJs(url);
+    if (engine === 'mpegts') return playMpegTs(url);
     if (engine === 'clappr') return playClappr(url);
   }
 
@@ -423,7 +522,7 @@ function loadClappr() { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/
     showLoading('Starting Native Engine...');
     const v = createVideoEl();
     v.src = getProxyUrl(url);
-    v.addEventListener('error', () => showError('Native Player Failed', 'Format might not be supported. Switch engine.'));
+    v.addEventListener('error', () => handlePlaybackFailure('Native Player Error', 'Native browser codec unsupported.'));
     v.addEventListener('loadedmetadata', () => { v.play().catch(()=>{}); wireCtrls(v); });
   }
 
@@ -433,14 +532,47 @@ function loadClappr() { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/
     if (!Hls.isSupported()) return playNative(url);
     
     const v = createVideoEl();
-    const hls = new Hls({ enableWorker: true });
+    const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
     hls.loadSource(getProxyUrl(url));
     hls.attachMedia(v);
     hls.on(Hls.Events.MANIFEST_PARSED, () => { v.play().catch(()=>{}); wireCtrls(v); });
     hls.on(Hls.Events.ERROR, (e, data) => {
-      if (data.fatal) showError('HLS.js Stream Error', `Type: ${data.type}`);
+      if (data.fatal) handlePlaybackFailure('HLS.js Stream Error', `Type: ${data.type}`);
     });
     window._hls = hls;
+  }
+
+  async function playShaka(url) {
+    showLoading('Starting Shaka Player Engine...');
+    try { await loadShaka(); } catch(e) { return playHlsJs(url); }
+    shaka.polyfill.installAll();
+    if (!shaka.Player.isBrowserSupported()) return playHlsJs(url);
+
+    const v = createVideoEl();
+    const player = new shaka.Player(v);
+    window._shakaPlayer = player;
+
+    player.addEventListener('error', (e) => handlePlaybackFailure('Shaka Player Error', `Code: ${e.detail?.code}`));
+    try {
+      await player.load(getProxyUrl(url));
+      v.play().catch(()=>{}); wireCtrls(v);
+    } catch(e) {
+      handlePlaybackFailure('Shaka Load Error', e.message);
+    }
+  }
+
+  async function playPlyr(url) {
+    showLoading('Starting Plyr Engine...');
+    try { await loadPlyr(); } catch(e) { return playNative(url); }
+    const v = createVideoEl();
+    v.src = getProxyUrl(url);
+    const plyr = new Plyr(v, {
+      autoplay: true,
+      controls: ['play-large', 'play', 'progress', 'current-time', 'duration', 'mute', 'volume', 'captions', 'settings', 'pip', 'fullscreen']
+    });
+    v.addEventListener('error', () => handlePlaybackFailure('Plyr Engine Error', 'Stream load failed.'));
+    v.addEventListener('loadedmetadata', () => { v.play().catch(()=>{}); wireCtrls(v); });
+    window._plyr = plyr;
   }
 
   async function playVideoJs(url) {
@@ -457,8 +589,21 @@ function loadClappr() { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/
     });
     player.src({ src: getProxyUrl(url), type: isHls(url) ? 'application/x-mpegURL' : 'video/mp4' });
     player.ready(() => { player.play().catch(()=>{}); });
-    player.on('error', () => showError('Video.js Engine Error', 'Playback failed.'));
+    player.on('error', () => handlePlaybackFailure('Video.js Engine Error', 'Playback failed.'));
     window._vjsPlayer = player;
+  }
+
+  async function playMpegTs(url) {
+    showLoading('Starting MPEG-TS Engine...');
+    try { await loadMpegts(); } catch(e) { return playNative(url); }
+    if (!mpegts.isSupported()) return playNative(url);
+    const v = createVideoEl();
+    const player = mpegts.createPlayer({ type: 'mse', isLive: true, url: getProxyUrl(url) });
+    player.attachMediaElement(v);
+    player.load();
+    player.play().catch(()=>{});
+    player.on(mpegts.Events.ERROR, () => handlePlaybackFailure('MPEG-TS Error', 'TS stream decode error.'));
+    window._mpegts = player;
   }
 
   async function playClappr(url) {
@@ -470,7 +615,7 @@ function loadClappr() { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/
         source: getProxyUrl(url), parentId: '#player-clappr',
         height: '100%', width: '100%', autoPlay: true, poster: poster || '',
         mimeType: isMkv(url) ? 'video/x-matroska' : undefined,
-        events: { onError: (e) => showError('Clappr Engine Error', 'Unsupported video codec.') }
+        events: { onError: () => handlePlaybackFailure('Clappr Engine Error', 'Unsupported video codec.') }
       });
       window._clappr = player;
     } catch(e) { playNative(url); }
