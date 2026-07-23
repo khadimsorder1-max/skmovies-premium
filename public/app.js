@@ -174,8 +174,6 @@
     /gdtot\.(dad|com|dev)$/i,
     /^gdlink\.dev$/i,
     /filepress\.(baby|com)$/i,
-    /^multidownload\.website$/i,
-    /^dr\d+\.multidownload\.website$/i,
     /^mlsbd-image\.com$/i,
     /^cdn\.imgnest\.io$/i,
     /^image\.tmdb\.org$/i,
