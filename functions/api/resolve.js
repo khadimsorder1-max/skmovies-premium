@@ -196,9 +196,12 @@ async function resolveSavelinks(savelinksUrl) {
       const deepUrls = await deepScrape(h.url);
       if (deepUrls.length > 0) {
         deepUrls.sort((a, b) => {
-          const ra = ({ mp4: 0, m3u8: 1, webm: 2, mkv: 3 })[(a.match(/\.(mp4|mkv|m3u8|webm)/i) || [])[1]?.toLowerCase()] ?? 9;
-          const rb = ({ mp4: 0, m3u8: 1, webm: 2, mkv: 3 })[(b.match(/\.(mp4|mkv|m3u8|webm)/i) || [])[1]?.toLowerCase()] ?? 9;
-          return ra - rb;
+          const rank = (url) => {
+            if (/dr\d+\.multidownload\.website\/d\//i.test(url)) return 0;
+            const ext = (url.match(/\.(mp4|mkv|m3u8|webm)/i) || [])[1]?.toLowerCase();
+            return { mp4: 1, m3u8: 2, webm: 3, mkv: 4 }[ext] ?? 9;
+          };
+          return rank(a) - rank(b);
         });
         directByHost[h.host] = deepUrls[0];
         directUrls.push(...deepUrls);
