@@ -1,0 +1,43 @@
+name: Fojik Cache Refresh
+
+on:
+  schedule:
+    - cron: '0 */2 * * *'   # Every 2 hours (fojik updates frequently)
+  workflow_dispatch:
+
+jobs:
+  fojik-cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout skmovies-premium repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Checkout skmovies-cache repo
+        uses: actions/checkout@v4
+        with:
+          repository: khadimsorder1-max/skmovies-cache
+          token: ${{ secrets.GH_PAT_TOKEN }}
+          path: skmovies-cache-out
+
+      - name: Scrape Fojik.site directly and populate cache
+        run: node scripts/populate_fojik_cache.js
+        env:
+          CACHE_OUT_DIR: ./skmovies-cache-out/fojik
+          PAGES: '15'
+          DETAILS: '300'
+
+      - name: Commit and push to cache repo
+        run: |
+          cd skmovies-cache-out
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add fojik/
+          git diff --staged --quiet && echo "No changes" && exit 0
+          git commit -m "fojik: Auto cache refresh $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push
