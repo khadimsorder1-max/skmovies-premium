@@ -67,17 +67,14 @@ export async function onRequest(context) {
 
       var html = await resp.text();
       var parsed = parseFojikList(html);
-      debugLog.push({ url: targetUrl, status: resp.status, ok: resp.ok, htmlLen: html.length, parsedLen: parsed.length, snippet: html.slice(0, 200) });
       if (resp.ok && parsed.length > 0) {
         items = parsed;
         break;
       }
-    } catch (e) {
-      debugLog.push({ url: targetUrl, error: e.message });
-    }
+    } catch (e) {}
   }
 
-  return json({ ok: true, page: page, items: items, hasMore: items.length >= 12, _debug: debugLog }, 200, 120);
+  return json({ ok: true, page: page, items: items, hasMore: items.length >= 12 }, 200, 120);
 }
 
 function parseFojikList(html) {
