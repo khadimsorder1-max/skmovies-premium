@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>HDPlayer Pro Max — Ultimate Video Player</title>
+<title>HDPlayer Pro Max — Ultimate Video & MKV Player</title>
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 
@@ -25,12 +25,14 @@ function _loadLib(name, url) {
   });
   return _libCache[name];
 }
-function loadHls()    { return _loadLib('Hls', 'https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js'); }
-function loadShaka()  { return _loadLib('shaka', 'https://cdn.jsdelivr.net/npm/shaka-player@4.11.2/dist/shaka-player.compiled.min.js'); }
-function loadPlyr()   { return _loadLib('Plyr', 'https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.min.js'); }
-function loadVideojs(){ return _loadLib('videojs', 'https://cdn.jsdelivr.net/npm/video.js@8.23.8/dist/video.min.js'); }
-function loadClappr() { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/clappr@0.4.6/dist/clappr.min.js'); }
-function loadMpegts() { return _loadLib('mpegts', 'https://cdn.jsdelivr.net/npm/mpegts.js@1.8.0/dist/mpegts.min.js'); }
+function loadArtplayer() { return _loadLib('Artplayer', 'https://cdn.jsdelivr.net/npm/artplayer@5.1.7/dist/artplayer.js'); }
+function loadOgv()       { return _loadLib('ogv', 'https://cdn.jsdelivr.net/npm/ogv@1.9.0/dist/ogv.js'); }
+function loadHls()       { return _loadLib('Hls', 'https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js'); }
+function loadShaka()     { return _loadLib('shaka', 'https://cdn.jsdelivr.net/npm/shaka-player@4.11.2/dist/shaka-player.compiled.min.js'); }
+function loadPlyr()      { return _loadLib('Plyr', 'https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.min.js'); }
+function loadVideojs()   { return _loadLib('videojs', 'https://cdn.jsdelivr.net/npm/video.js@8.23.8/dist/video.min.js'); }
+function loadClappr()    { return _loadLib('Clappr', 'https://cdn.jsdelivr.net/npm/clappr@0.4.6/dist/clappr.min.js'); }
+function loadMpegts()    { return _loadLib('mpegts', 'https://cdn.jsdelivr.net/npm/mpegts.js@1.8.0/dist/mpegts.min.js'); }
 </script>
 
 <style>
@@ -139,7 +141,7 @@ function loadMpegts() { return _loadLib('mpegts', 'https://cdn.jsdelivr.net/npm/
 
   /* ═══ STAGE ═══ */
   .stage { flex: 1; position: relative; background: #000; overflow: hidden; min-height: 0; }
-  .video-js, .player-clappr, .plyr { width: 100% !important; height: 100% !important; }
+  .video-js, .player-clappr, .plyr, .artplayer-app { width: 100% !important; height: 100% !important; }
   .stage iframe { width: 100%; height: 100%; border: 0; display: block; background: #000; }
 
   /* Toast Notification */
@@ -209,15 +211,17 @@ function loadMpegts() { return _loadLib('mpegts', 'https://cdn.jsdelivr.net/npm/
     </div>
     
     <div class="topbar-right">
-      <!-- Engine Selector (8 Engines) -->
+      <!-- Engine Selector (10 Specialized Engines) -->
       <select class="engine-select" id="engineSelect" title="Switch Player Engine" onchange="switchEngine(this.value)">
         <option value="auto">⚡ Auto (Smart Engine)</option>
+        <option value="artplayer">🎭 ArtPlayer (MKV Master)</option>
+        <option value="clappr">📼 Clappr (Matroska Remuxer)</option>
+        <option value="ogv">⚙️ OGV.js (WebAssembly MKV Decoder)</option>
         <option value="hlsjs">🚀 HLS.js (HLS/m3u8)</option>
         <option value="shaka">🛡️ Shaka Player (Google)</option>
         <option value="plyr">✨ Plyr (Ad-free UI)</option>
         <option value="videojs">🎬 Video.js (Ultra HD)</option>
         <option value="mpegts">📡 MPEG-TS (Live TS)</option>
-        <option value="clappr">📼 Clappr (Matroska/MKV)</option>
         <option value="native">🌐 Native (HTML5)</option>
         <option value="iframe">🖼️ Iframe (Browser Fallback)</option>
       </select>
@@ -263,7 +267,7 @@ function loadMpegts() { return _loadLib('mpegts', 'https://cdn.jsdelivr.net/npm/
     <div class="state-layer" id="loading">
       <div class="spinner"></div>
       <p style="font-family:var(--font-brand);font-weight:700;color:var(--text-primary);">Connecting to Direct Stream…</p>
-      <small style="font-size:11px;color:var(--text-muted)">Auto retry & Multi-engine active</small>
+      <small style="font-size:11px;color:var(--text-muted)">MKV demuxers & Auto failover active</small>
     </div>
   </div>
 </div>
@@ -346,8 +350,8 @@ function loadMpegts() { return _loadLib('mpegts', 'https://cdn.jsdelivr.net/npm/
       </div>`;
   }
 
-  // Auto Engine Failover Circuit
-  const ENGINE_FAILOVER_CHAIN = ['hlsjs', 'shaka', 'plyr', 'videojs', 'clappr', 'native', 'iframe'];
+  // Specialized MKV & Stream Failover Chain
+  const ENGINE_FAILOVER_CHAIN = ['artplayer', 'clappr', 'ogv', 'hlsjs', 'shaka', 'plyr', 'videojs', 'native', 'iframe'];
 
   function handlePlaybackFailure(errorName, details) {
     if (retryCount < MAX_AUTO_RETRIES) {
@@ -441,14 +445,17 @@ function loadMpegts() { return _loadLib('mpegts', 'https://cdn.jsdelivr.net/npm/
 
   function cleanupPlayer() {
     clearTimeout(autoFailoverTimer);
+    try { if (window._artplayer) window._artplayer.destroy(); } catch (_) {}
+    try { if (window._ogvPlayer) window._ogvPlayer.destroy(); } catch (_) {}
     try { if (window._hls) window._hls.destroy(); } catch (_) {}
     try { if (window._shakaPlayer) window._shakaPlayer.destroy(); } catch (_) {}
     try { if (window._plyr) window._plyr.destroy(); } catch (_) {}
     try { if (window._vjsPlayer) window._vjsPlayer.dispose(); } catch (_) {}
     try { if (window._clappr) window._clappr.destroy(); } catch (_) {}
     try { if (window._mpegts) window._mpegts.destroy(); } catch (_) {}
-    window._hls = null; window._shakaPlayer = null; window._plyr = null;
-    window._vjsPlayer = null; window._clappr = null; window._mpegts = null;
+    window._artplayer = null; window._ogvPlayer = null; window._hls = null;
+    window._shakaPlayer = null; window._plyr = null; window._vjsPlayer = null;
+    window._clappr = null; window._mpegts = null;
     document.getElementById('stage').innerHTML = '';
   }
 
@@ -477,10 +484,10 @@ function loadMpegts() { return _loadLib('mpegts', 'https://cdn.jsdelivr.net/npm/
   }
 
   function determineBestEngine(u) {
+    if (isMkv(u)) return 'artplayer';
     if (isHls(u)) return 'hlsjs';
     if (isTs(u))  return 'mpegts';
-    if (isMkv(u)) return 'clappr';
-    return 'plyr';
+    return 'artplayer';
   }
 
   function getProxyUrl(u) {
@@ -497,16 +504,65 @@ function loadMpegts() { return _loadLib('mpegts', 'https://cdn.jsdelivr.net/npm/
       return;
     }
 
-    if (engine === 'native') return playNative(url);
-    if (engine === 'hlsjs')  return playHlsJs(url);
-    if (engine === 'shaka')  return playShaka(url);
-    if (engine === 'plyr')   return playPlyr(url);
-    if (engine === 'videojs') return playVideoJs(url);
-    if (engine === 'mpegts') return playMpegTs(url);
-    if (engine === 'clappr') return playClappr(url);
+    if (engine === 'artplayer') return playArtplayer(url);
+    if (engine === 'ogv')       return playOgv(url);
+    if (engine === 'clappr')    return playClappr(url);
+    if (engine === 'hlsjs')     return playHlsJs(url);
+    if (engine === 'shaka')     return playShaka(url);
+    if (engine === 'plyr')      return playPlyr(url);
+    if (engine === 'videojs')   return playVideoJs(url);
+    if (engine === 'mpegts')    return playMpegTs(url);
+    if (engine === 'native')    return playNative(url);
   }
 
-  // --- Engines ---
+  // --- Specialized Engines ---
+  async function playArtplayer(url) {
+    showLoading('Starting ArtPlayer (MKV Master)...');
+    try { await loadArtplayer(); } catch(e) { return playClappr(url); }
+    document.getElementById('stage').innerHTML = '<div id="artplayer-app" style="width:100%;height:100%;"></div>';
+    try {
+      const art = new Artplayer({
+        container: '#artplayer-app',
+        url: getProxyUrl(url),
+        poster: poster || '',
+        type: isMkv(url) ? 'mkv' : 'auto',
+        autoplay: true,
+        pip: true,
+        fullscreen: true,
+        fullscreenWeb: true,
+        setting: true,
+        playbackRate: true,
+        aspectRatio: true,
+        flip: true,
+        lock: true,
+        fastForward: true,
+        autoOrientation: true,
+      });
+      window._artplayer = art;
+      art.on('ready', () => { wireCtrls(art.video); });
+      art.on('error', (err) => handlePlaybackFailure('ArtPlayer MKV Error', err?.message || 'Demuxing error'));
+    } catch(e) {
+      playClappr(url);
+    }
+  }
+
+  async function playOgv(url) {
+    showLoading('Starting OGV.js (WebAssembly MKV Engine)...');
+    try { await loadOgv(); } catch(e) { return playNative(url); }
+    document.getElementById('stage').innerHTML = '';
+    try {
+      if (window.ogv && ogv.Decoder) ogv.Decoder.basePath = 'https://cdn.jsdelivr.net/npm/ogv@1.9.0/dist';
+      const player = new ogv.Player();
+      player.src = getProxyUrl(url);
+      player.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000;display:block';
+      document.getElementById('stage').appendChild(player);
+      player.play();
+      window._ogvPlayer = player;
+    } catch(e) {
+      playNative(url);
+    }
+  }
+
   function createVideoEl() {
     document.getElementById('stage').innerHTML = '';
     const v = document.createElement('video');
@@ -607,7 +663,7 @@ function loadMpegts() { return _loadLib('mpegts', 'https://cdn.jsdelivr.net/npm/
   }
 
   async function playClappr(url) {
-    showLoading('Starting Clappr Engine...');
+    showLoading('Starting Clappr (Matroska Remuxer)...');
     try { await loadClappr(); } catch(e) { return playNative(url); }
     document.getElementById('stage').innerHTML = '<div id="player-clappr"></div>';
     try {
@@ -623,6 +679,7 @@ function loadMpegts() { return _loadLib('mpegts', 'https://cdn.jsdelivr.net/npm/
 
   // --- UI Controls ---
   function wireCtrls(video) {
+    if (!video) return;
     const br = document.getElementById('brightRange');
     if(br) { br.oninput = () => video.style.filter = br.value === '1' ? '' : `brightness(${br.value})`; }
   }
