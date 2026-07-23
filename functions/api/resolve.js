@@ -66,7 +66,15 @@ function fetchWithTimeout(url, opts = {}, timeoutMs = FETCH_TIMEOUT_MS) {
 // Returns array of direct URLs (may be empty).
 async function deepScrape(intermediateUrl) {
   try {
-    const resp = await fetchWithTimeout(intermediateUrl, {
+    // Transform MultiCloud /view/<id> directly to /player.php/?v=<id> for instant streamSrc resolution
+    let targetFetchUrl = intermediateUrl;
+    const mcViewMatch = intermediateUrl.match(/(https?:\/\/[^\/]*multicloud[^\/]*)\/view\/([a-zA-Z0-9]+)/i) ||
+                        intermediateUrl.match(/(https?:\/\/[^\/]*multidownload[^\/]*)\/view\/([a-zA-Z0-9]+)/i);
+    if (mcViewMatch) {
+      targetFetchUrl = `${mcViewMatch[1]}/player.php/?v=${mcViewMatch[2]}`;
+    }
+
+    const resp = await fetchWithTimeout(targetFetchUrl, {
       headers: {
         'User-Agent': UA,
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -80,6 +88,14 @@ async function deepScrape(intermediateUrl) {
     // Already a direct video? Return the URL itself.
     if (/video\//i.test(ct)) return [intermediateUrl];
     const html = await resp.text();
+
+    // 1. Extract streamSrc = "https://dr1.multidownload.website/d/..." from player.php
+    const streamSrcMatch = html.match(/streamSrc\s*=\s*["']([^"']+)["']/i);
+    if (streamSrcMatch) {
+      const streamUrl = streamSrcMatch[1].replace(/&amp;/g, '&');
+      return [streamUrl];
+    }
+
     // Support .m3u / #EXTM3U stream playlist parsing (e.g. Multidownload / Multicloud .m3u links)
     if (html.includes('#EXTM3U') || /\.m3u8?(\?|$)/i.test(intermediateUrl)) {
       const lines = html.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
