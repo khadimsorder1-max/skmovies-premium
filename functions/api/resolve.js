@@ -71,7 +71,9 @@ async function deepScrape(intermediateUrl) {
         'User-Agent': UA,
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://savelinks.me/',
       },
+      redirect: 'follow',
     });
     if (!resp.ok) return [];
     const ct = resp.headers.get('content-type') || '';
