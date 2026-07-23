@@ -42,7 +42,7 @@ const INTERMEDIATE_HOST_PATTERNS = [
   /hubstream\.art$/i,
 ];
 
-const VIDEO_EXT_RE = /\.(mp4|mkv|m3u8|webm|mov|avi|ts)(\?|#|$)|[\?&]action=watch\b/i;
+const VIDEO_EXT_RE = /\.(mp4|mkv|m3u8|webm|mov|avi|ts)(\?|#|$)|[\?&]action=watch\b|dr\d+\.multidownload\.website|multidownload\.website\/d\//i;
 
 function isIntermediate(url) {
   try {
@@ -95,10 +95,23 @@ async function deepScrape(intermediateUrl) {
       } catch (e) {}
     }
 
+    // Specific MultiCloud / MultiDownload / dr1 direct link extraction
+    const drDirectUrls = [];
+    const drMatches = html.match(/href=["'](https?:\/\/(?:dr\d+\.multidownload\.[^"'\s<>]+|[^"'\s<>]*multicloudlinks\.com\/(?:player\.php\/\?v=|dl\/)[^"'\s<>]+))["']/gi) || [];
+    for (const m of drMatches) {
+      let rawUrl = m.replace(/href=["']|["']/gi, '').replace(/&amp;/g, '&');
+      if (rawUrl && !drDirectUrls.includes(rawUrl)) {
+        drDirectUrls.push(rawUrl);
+      }
+    }
+    if (drDirectUrls.length > 0) {
+      // Prioritize dr1.multidownload / direct download URL
+      return drDirectUrls;
+    }
+
     // Match https://...mp4|mkv|m3u8|webm (with optional query)
     const re = /https?:\/\/[^\s"'<>\)]+\.(?:mp4|mkv|webm|m3u8)(?:\?[^\s"'<>\)]*)?/gi;
     const matches = html.match(re) || [];
-    // De-dup
     return [...new Set(matches)];
 
   } catch (e) {
@@ -106,6 +119,7 @@ async function deepScrape(intermediateUrl) {
     return [];
   }
 }
+
 
 // Parse savelinks.me page HTML to extract file-host links.
 function parseSavelinksHtml(html) {
@@ -118,7 +132,7 @@ function parseSavelinksHtml(html) {
     const text = m[2].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
     // Exclude Telegram links completely
     if (/telegram|t\.me/i.test(url)) continue;
-    if (/gdflix|filepress|hubcloud|hubdrive|gdtot|multicloudlinks|busycdn|indexserver|hubstream/i.test(url)) {
+    if (/gdflix|filepress|hubcloud|hubdrive|gdtot|multicloudlinks|multidownload|busycdn|indexserver|hubstream/i.test(url)) {
       // Detect host label
       let host = 'Link';
       if (/gdflix/i.test(url)) host = 'GDFlix';
@@ -126,7 +140,7 @@ function parseSavelinksHtml(html) {
       else if (/hubcloud/i.test(url)) host = 'HubCloud';
       else if (/hubdrive/i.test(url)) host = 'HubDrive';
       else if (/gdtot/i.test(url)) host = 'GDTot';
-      else if (/multicloudlinks/i.test(url)) host = 'MultiCloud';
+      else if (/multicloudlinks|multidownload|dr\d+/i.test(url)) host = 'MultiCloud';
       else if (/busycdn/i.test(url)) host = 'BusyCDN';
       else if (/indexserver/i.test(url)) host = 'IndexServer';
       else if (/hubstream/i.test(url)) host = 'HubStream';
