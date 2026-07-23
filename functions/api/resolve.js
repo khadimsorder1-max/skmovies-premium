@@ -66,12 +66,17 @@ function fetchWithTimeout(url, opts = {}, timeoutMs = FETCH_TIMEOUT_MS) {
 // Returns array of direct URLs (may be empty).
 async function deepScrape(intermediateUrl) {
   try {
-    // Transform MultiCloud /view/<id> directly to /player.php/?v=<id> for instant streamSrc resolution
+    // Transform MultiCloud /view/<id> directly to /player.php/?v=<id> and /dl/<id> for instant resolution
     let targetFetchUrl = intermediateUrl;
+    let fallbackMcUrls = [];
     const mcViewMatch = intermediateUrl.match(/(https?:\/\/[^\/]*multicloud[^\/]*)\/view\/([a-zA-Z0-9]+)/i) ||
                         intermediateUrl.match(/(https?:\/\/[^\/]*multidownload[^\/]*)\/view\/([a-zA-Z0-9]+)/i);
     if (mcViewMatch) {
       targetFetchUrl = `${mcViewMatch[1]}/player.php/?v=${mcViewMatch[2]}`;
+      fallbackMcUrls = [
+        `${mcViewMatch[1]}/dl/${mcViewMatch[2]}`,
+        `${mcViewMatch[1]}/player.php/?v=${mcViewMatch[2]}`,
+      ];
     }
 
     const resp = await fetchWithTimeout(targetFetchUrl, {
@@ -83,9 +88,12 @@ async function deepScrape(intermediateUrl) {
       },
       redirect: 'follow',
     });
-    if (!resp.ok) return [];
+
+    if (!resp.ok) {
+      return fallbackMcUrls;
+    }
+
     const ct = resp.headers.get('content-type') || '';
-    // Already a direct video? Return the URL itself.
     if (/video\//i.test(ct)) return [intermediateUrl];
     const html = await resp.text();
 
@@ -93,7 +101,11 @@ async function deepScrape(intermediateUrl) {
     const streamSrcMatch = html.match(/streamSrc\s*=\s*["']([^"']+)["']/i);
     if (streamSrcMatch) {
       const streamUrl = streamSrcMatch[1].replace(/&amp;/g, '&');
-      return [streamUrl];
+      return [streamUrl, ...fallbackMcUrls];
+    }
+
+    if (fallbackMcUrls.length > 0) {
+      return fallbackMcUrls;
     }
 
     // Support .m3u / #EXTM3U stream playlist parsing (e.g. Multidownload / Multicloud .m3u links)
