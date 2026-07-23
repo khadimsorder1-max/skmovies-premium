@@ -31,15 +31,15 @@ const FETCH_TIMEOUT_MS = 12000;
 const INTERMEDIATE_HOST_PATTERNS = [
   /multicloudlinks/i,
   /multidownload/i,
-  /gdflix\.(dev|dad|com|io)$/i,
-  /filepress\.(baby|com)$/i,
-  /hubcloud\.(lol|foo|com)$/i,
-  /hubdrive\.(tips|com|net)$/i,
-  /gdtot\.(dad|com|dev)$/i,
-  /gdlink\.dev$/i,
-  /busycdn\.xyz$/i,
-  /indexserver\.site$/i,
-  /hubstream\.art$/i,
+  /gdflix\.(dev|dad|com|io)/i,
+  /filepress\.(baby|com)/i,
+  /hubcloud\.(lol|foo|com)/i,
+  /hubdrive\.(tips|com|net)/i,
+  /gdtot\.(dad|com|dev)/i,
+  /gdlink\.dev/i,
+  /busycdn\.xyz/i,
+  /indexserver\.site/i,
+  /hubstream\.art/i,
 ];
 
 const VIDEO_EXT_RE = /\.(mp4|mkv|m3u8|webm|mov|avi|ts)(\?|#|$)|[\?&]action=watch\b|dr\d+\.multidownload\.website|multidownload\.website\/d\//i;
@@ -210,8 +210,8 @@ async function resolveSavelinks(savelinksUrl) {
   async function worker() {
     while (queue.length) {
       const h = queue.shift();
-      if (!h || h.host === 'Telegram') return;
-      if (!isIntermediate(h.url)) return;
+      if (!h || h.host === 'Telegram') continue;
+      if (!isIntermediate(h.url)) continue;
       const deepUrls = await deepScrape(h.url);
       if (deepUrls.length > 0) {
         deepUrls.sort((a, b) => {
@@ -270,8 +270,8 @@ async function resolveFdmLink(fdmUrl) {
   async function worker() {
     while (queue.length) {
       const h = queue.shift();
-      if (!h || h.host === 'Telegram') return;
-      if (!isIntermediate(h.url)) return;
+      if (!h || h.host === 'Telegram') continue;
+      if (!isIntermediate(h.url)) continue;
       const deepUrls = await deepScrape(h.url);
       if (deepUrls.length > 0) directUrls.push(...deepUrls);
     }
