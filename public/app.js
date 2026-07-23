@@ -205,9 +205,18 @@
     }
   }
 
+  function isIntermediateHost(urlStr) {
+    if (!urlStr) return false;
+    try {
+      const u = new URL(urlStr);
+      return /gdflix|filepress|savelinks|gdtot|freedrivemovie/i.test(u.hostname) && /\/(file|links|episodes|view)\//i.test(u.pathname);
+    } catch { return false; }
+  }
+
   function wrapInProxy(url) {
     if (!url) return url;
     if (url.startsWith('/api/proxy?')) return url;
+    if (isIntermediateHost(url)) return url;
     if (!hostNeedsProxy(url)) return url;
     let b64;
     try { b64 = btoa(url); } catch (_) { b64 = btoa(unescape(encodeURIComponent(url))); }
@@ -2903,8 +2912,36 @@
     }
   }
 
-  function openPlayerSheet(directUrl, title, altUrls) {
-    openSheet({ title: 'Open with player', hint: getDeviceHint(), players: getPlayerButtons(directUrl, title), url: directUrl, tip: getDeviceTip(), altUrls: altUrls || [] });
+  function openPlayerSheet(directUrl, title, altUrls = []) {
+    let playUrl = directUrl;
+    let fallbackWebUrl = null;
+
+    if (isIntermediateHost(directUrl)) {
+      fallbackWebUrl = directUrl;
+      const realDirect = altUrls.find(u => !isIntermediateHost(u));
+      if (realDirect) {
+        playUrl = realDirect;
+      }
+    }
+
+    if (fallbackWebUrl && playUrl === fallbackWebUrl) {
+      const hostLabel = getHostName(fallbackWebUrl) || 'সোর্স পেজ';
+      openSheet({
+        title: 'সরাসরি ভিডিও লিঙ্ক ফাইল পেজে রয়েছে',
+        hint: 'এই হোস্টে ডাউনলোডের জন্য ফাইল পেজে ক্লিক করে ক্যাপচা পার্স করতে হবে।',
+        url: fallbackWebUrl,
+        fallbackUrl: fallbackWebUrl,
+        altUrls: altUrls.filter(u => u !== fallbackWebUrl),
+      });
+      dom.sheetGrid.innerHTML = `
+        <a class="sheet__btn sheet__btn--primary" href="${escapeHtml(fallbackWebUrl)}" target="_blank" rel="noopener">
+          <span class="sheet__btn-icon">🌐</span>${escapeHtml(hostLabel)} পেজ খুলুন
+        </a>
+      `;
+      return;
+    }
+
+    openSheet({ title: 'Open with player', hint: getDeviceHint(), players: getPlayerButtons(playUrl, title), url: playUrl, tip: getDeviceTip(), altUrls: altUrls.filter(u => u !== playUrl) });
   }
 
   function openSheet({ title, hint, players = '', url = '', tip = '', loading = false, fallbackUrl = '', altUrls = [] }) {
