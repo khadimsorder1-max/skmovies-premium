@@ -29,20 +29,20 @@ const FETCH_TIMEOUT_MS = 12000;
 // Hosts that are known to be INTERMEDIATE pages (HTML, not direct video).
 // For each, we'll fetch the page and scrape for direct video URLs.
 const INTERMEDIATE_HOST_PATTERNS = [
-  /multicloudlinks\.com$/i,
+  /multicloudlinks/i,
+  /multidownload/i,
   /gdflix\.(dev|dad|com|io)$/i,
   /filepress\.(baby|com)$/i,
   /hubcloud\.(lol|foo|com)$/i,
   /hubdrive\.(tips|com|net)$/i,
   /gdtot\.(dad|com|dev)$/i,
   /gdlink\.dev$/i,
-  /multidownload\.website$/i,
   /busycdn\.xyz$/i,
   /indexserver\.site$/i,
   /hubstream\.art$/i,
 ];
 
-const VIDEO_EXT_RE = /\.(mp4|mkv|m3u8|webm|mov|avi|ts)(\?|#|$)/i;
+const VIDEO_EXT_RE = /\.(mp4|mkv|m3u8|webm|mov|avi|ts)(\?|#|$)|[\?&]action=watch\b/i;
 
 function isIntermediate(url) {
   try {
@@ -84,6 +84,17 @@ async function deepScrape(intermediateUrl) {
       const directUrls = lines.filter(l => /^https?:\/\//i.test(l));
       if (directUrls.length > 0) return directUrls;
     }
+
+    // Extract downloadUrl from scripts / links (e.g. MultiCloud / MultiDownload links)
+    const dlMatch = html.match(/downloadUrl\s*=\s*["']([^"']+)["']/i) ||
+                    html.match(/href=["']([^"']+\?download=true)["']/i);
+    if (dlMatch) {
+      try {
+        const fullDl = new URL(dlMatch[1], intermediateUrl).toString();
+        return [fullDl];
+      } catch (e) {}
+    }
+
     // Match https://...mp4|mkv|m3u8|webm (with optional query)
     const re = /https?:\/\/[^\s"'<>\)]+\.(?:mp4|mkv|webm|m3u8)(?:\?[^\s"'<>\)]*)?/gi;
     const matches = html.match(re) || [];

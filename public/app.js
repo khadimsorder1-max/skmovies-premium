@@ -2482,8 +2482,8 @@
           either a direct video URL (already wrapped in /api/proxy for
           CORS bypass) OR throws with a useful error code.
   ─────────────────────────────────────────────────────────────────────── */
-  const VIDEO_EXT_RE = /\.(mp4|mkv|m3u8|webm|mov|avi|ts)(\?|#|$)/i;
-  const INTERMEDIATE_HOST_RE = /multicloudlinks\.com|gdflix\.(dev|dad|com|io)|filepress\.(baby|com)|hubcloud\.(lol|foo|com)|hubdrive\.(tips|com|net)|gdtot\.(dad|com|dev)|gdlink\.dev|multidownload\.website|busycdn\.xyz|indexserver\.site|hubstream\.art/i;
+  const VIDEO_EXT_RE = /\.(mp4|mkv|m3u8|webm|mov|avi|ts)(\?|#|$)|[\?&]action=watch\b/i;
+  const INTERMEDIATE_HOST_RE = /multicloudlinks|multidownload|gdflix\.(dev|dad|com|io)|filepress\.(baby|com)|hubcloud\.(lol|foo|com)|hubdrive\.(tips|com|net)|gdtot\.(dad|com|dev)|gdlink\.dev|busycdn\.xyz|indexserver\.site|hubstream\.art/i;
 
   function isDirectVideoUrl(url) {
     if (!url || typeof url !== 'string') return false;
@@ -2538,11 +2538,18 @@
         const directUrls = lines.filter(l => /^https?:\/\//i.test(l));
         if (directUrls.length > 0) return directUrls[0];
       }
-      // Look for direct video URLs in the HTML.
 
-      // Pattern 1: <a href="https://...mkv">
-      // Pattern 2: "download_url":"https://...mp4" (JSON in script tags)
-      // Pattern 3: data-url="https://...mkv"
+      // Extract downloadUrl from scripts / links (e.g. MultiCloud / MultiDownload links)
+      const dlMatch = html.match(/downloadUrl\s*=\s*["']([^"']+)["']/i) ||
+                      html.match(/href=["']([^"']+\?download=true)["']/i);
+      if (dlMatch) {
+        try {
+          const fullDl = new URL(dlMatch[1], intermediateUrl).toString();
+          return fullDl;
+        } catch (e) {}
+      }
+
+      // Look for direct video URLs in the HTML.
       const urlPattern = /https?:\/\/[^\s"'<>]+\.(?:mp4|mkv|webm|m3u8)(?:\?[^\s"'<>]*)?/gi;
       const matches = html.match(urlPattern) || [];
       // De-dup + prefer the most specific (longest path that contains the file name)
@@ -2555,6 +2562,7 @@
       };
       uniq.sort((a, b) => rank(a) - rank(b));
       return uniq[0];
+
     } catch (e) {
       console.warn('deepResolveVideoUrl failed:', e);
       return null;
