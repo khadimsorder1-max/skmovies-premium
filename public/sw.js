@@ -1,4 +1,5 @@
-const VERSION = 'skm-v4.11.1';
+const VERSION = 'skm-v4.12.0';
+
 
 
 
