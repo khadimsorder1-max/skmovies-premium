@@ -1,22 +1,12 @@
 #!/usr/bin/env node
 /**
- * SKMovies Fojik Full Cache Populator v2.0
- * ----------------------------------------
- * STRATEGY:
- *  - Main homepage (90 articles per page, but page 2+ = 404 → only 1 page)
- *  - Genre/Category pages: /genre/bollywood-hindi/, /genre/hollywood-english/, etc.
- *  - All genre pages use /genre/<slug>/page/<N>/ for pagination
- *  - Target: 500+ unique slugs
- *
- * MOVIE DETAILS (per movie):
- *  - Title, Poster (full-size og:image)
- *  - Screenshots from imgforwp.xyz
- *  - Genres from sgeneros
- *  - IMDB rating
- *  - Synopsis
- *  - Downloads: FU/FN form fields (base64 encoded URLs)
- *    → We POST to form action to get actual redirect URL
- *  - Direct stream: Any iframe/video src in the page
+ * SKMovies Fojik Entire-Site Cache Populator v4.0
+ * ------------------------------------------------
+ * CORRECT APPROACH:
+ * - Fojik uses post-sitemap.xml (NOT attachment-sitemap) for movie posts
+ * - Supplemented with all genre pages (unlimited pagination)
+ * - Skips image attachments, junk slugs
+ * - Caches FU/FN tokens for direct downloads + stream info
  */
 
 const fs = require('fs');
@@ -24,10 +14,8 @@ const path = require('path');
 const https = require('https');
 const http = require('http');
 
-// ── Config ─────────────────────────────────────────────────────────────────────
-const PAGES_PER_GENRE = parseInt(process.env.PAGES_PER_GENRE || '5', 10);
-const DETAILS_COUNT = parseInt(process.env.DETAILS || '500', 10);
-const CONCURRENCY = parseInt(process.env.CONCURRENCY || '4', 10);
+const CONCURRENCY = parseInt(process.env.CONCURRENCY || '6', 10);
+const MAX_GENRE_PAGES = parseInt(process.env.PAGES || '99', 10); // per genre
 
 const CACHE_DIR = process.env.CACHE_OUT_DIR
   ? path.resolve(process.env.CACHE_OUT_DIR)
@@ -39,31 +27,26 @@ if (!fs.existsSync(MOVIE_DIR)) fs.mkdirSync(MOVIE_DIR, { recursive: true });
 
 const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
-// All genre pages to scrape (from fojik.site nav menu)
 const GENRE_PAGES = [
-  'bollywood-hindi',
-  'hollywood-english',
-  'tamil',
-  'telugu',
-  'malayalam',
-  'dual-audio',
-  'hindi-dubbed',
-  'hevc-collection',
-  'tv-web-series',
-  'action',
-  'thriller',
-  'drama',
-  'romance',
-  'sci-fi',
-  'comedy',
-  'horror',
-  'korean',
-  'japanese-chinese',
-  'animation',
-  'kannada',
+  'bollywood-hindi', 'hollywood-english', 'tamil', 'telugu', 'malayalam',
+  'dual-audio', 'hindi-dubbed', 'hevc-collection', 'tv-web-series',
+  'action', 'thriller', 'drama', 'romance', 'sci-fi', 'comedy', 'horror',
+  'korean', 'japanese-chinese', 'animation', 'kannada', 'pakistani-movies', 'others'
 ];
 
-// ── Fetch helpers ──────────────────────────────────────────────────────────────
+// Slugs that are clearly NOT movies
+const JUNK_SLUG_RE = /^(wp-content|uploads|thumb|thumbnail|attachment|page|tag|category|author|feed|search|genre|movie|series|download|how-to|about|contact|privacy|sitemap|xml|rss|css|js|img|image|photo|screenshot|adspic|lastpage|download|null|undefined)$/i;
+const JUNK_SLUG_PATTERN = /-jpg$|-png$|-jpeg$|-gif$|-webp$|^[a-z0-9]{28,}$|\?attachment_id=|^[0-9]+$|screenshot|^w300|^adspic|lastpage/i;
+
+function isValidMovieSlug(slug) {
+  if (!slug || slug.length < 3 || slug.length > 150) return false;
+  if (JUNK_SLUG_RE.test(slug)) return false;
+  if (JUNK_SLUG_PATTERN.test(slug)) return false;
+  // Must contain at least one letter and one hyphen OR be a valid title slug
+  if (!/[a-z]/i.test(slug)) return false;
+  return true;
+}
+
 function fetchRaw(url, opts, depth) {
   depth = depth || 0;
   opts = opts || {};
@@ -73,7 +56,6 @@ function fetchRaw(url, opts, depth) {
     try {
       const u = new URL(url);
       const lib = u.protocol === 'https:' ? https : http;
-
       const reqOpts = {
         hostname: u.hostname,
         port: u.port || (u.protocol === 'https:' ? 443 : 80),
@@ -83,16 +65,13 @@ function fetchRaw(url, opts, depth) {
           'User-Agent': BROWSER_UA,
           'Accept': opts.accept || 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
           'Accept-Language': 'en-US,en;q=0.9',
-          'Cache-Control': 'no-cache',
         }, opts.headers || {}),
         timeout: 20000,
       };
 
       const req = lib.request(reqOpts, (res) => {
         if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
-          const loc = res.headers.location.startsWith('http')
-            ? res.headers.location
-            : `${u.protocol}//${u.host}${res.headers.location}`;
+          const loc = res.headers.location.startsWith('http') ? res.headers.location : `${u.protocol}//${u.host}${res.headers.location}`;
           res.resume();
           return fetchRaw(loc, opts, depth + 1).then(resolve);
         }
@@ -100,14 +79,11 @@ function fetchRaw(url, opts, depth) {
         res.on('data', (chunk) => (body += chunk));
         res.on('end', () => resolve({ status: res.statusCode, body, headers: res.headers, finalUrl: url }));
       });
-
       req.on('timeout', () => { req.destroy(); resolve({ status: 504, body: '' }); });
       req.on('error', (e) => resolve({ status: 500, body: '', error: e.message }));
       if (opts.body) req.write(opts.body);
       req.end();
-    } catch (e) {
-      resolve({ status: 500, body: '', error: e.message });
-    }
+    } catch (e) { resolve({ status: 500, body: '', error: e.message }); }
   });
 }
 
@@ -135,26 +111,19 @@ function decodeHtmlEntities(s) {
     .replace(/&quot;/g, '"').replace(/&#038;/g, '&');
 }
 
-// ── HTML parsers ────────────────────────────────────────────────────────────────
-function parseFojikList(html, sourceLabel) {
+function parseFojikList(html) {
   const items = [];
   const seen = new Set();
-
-  // Fojik uses DooPlay theme - articles with class "post"
   const itemRe = /<article[^>]*>([\s\S]*?)<\/article>/gi;
   let m;
 
   while ((m = itemRe.exec(html)) !== null) {
     const block = m[1];
-
-    // Poster image - prefer data-src (lazy loaded) over src
     const imgM = block.match(/data-lazy-src="([^"]+)"|data-src="([^"]+)"|<img[^>]+src="([^"]+wp-content[^"]+)"/i);
     let img = imgM ? (imgM[1] || imgM[2] || imgM[3] || '') : '';
     if (img.startsWith('//')) img = 'https:' + img;
-    // Upgrade to full size (remove -185x278 thumbnail suffix)
     img = img.replace(/-\d+x\d+(\.\w+)$/, '$1');
 
-    // Title & URL
     const titleM = block.match(/<h\d[^>]*class="[^"]*entry-title[^"]*"[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i)
       || block.match(/<h\d[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i)
       || block.match(/<a[^>]+href="(https?:\/\/fojik[^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
@@ -165,51 +134,38 @@ function parseFojikList(html, sourceLabel) {
     const title = decodeHtmlEntities(titleM[2].replace(/<[^>]+>/g, '').trim());
     if (!rawUrl || title.length < 3) continue;
 
-    // Extract slug
-    const slugM = rawUrl.match(/\/movie\/([^/]+)\/?$|\/series\/([^/]+)\/?$|fojik\.site\/([^/]+)\/?$|\/([a-z0-9-]+)\/?$/i);
-    const slug = slugM ? (slugM[1] || slugM[2] || slugM[3] || slugM[4] || '') : '';
-    if (!slug || ['movie', 'series', 'genre', 'category', 'page', 'tag'].includes(slug) || seen.has(slug)) continue;
+    const slugM = rawUrl.match(/\/movie\/([^/]+)\/?$|\/series\/([^/]+)\/?$|\/([a-z0-9][a-z0-9-]{2,})\/?$/i);
+    const slug = slugM ? (slugM[1] || slugM[2] || slugM[3] || '') : '';
+    if (!isValidMovieSlug(slug) || seen.has(slug)) continue;
     seen.add(slug);
 
-    // Quality
-    const qualityM = title.match(/(4K UHD|4K|2160p|1080p|720p|480p|WEB-DL|WEBRip|BluRay|HEVC|HDRip|PRE-HD|CAMRip|ORG)/i);
+    const qualityM = title.match(/(4K UHD|4K|2160p|1080p|720p|480p|WEB-DL|WEBRip|BluRay|HEVC|HDRip|PRE-HD|ORG)/i);
     const quality = qualityM ? qualityM[1].toUpperCase() : 'HD';
-
-    // Year
     const yearM = title.match(/\b(19\d{2}|20\d{2})\b/);
     const year = yearM ? yearM[1] : '';
 
-    // Rating from article if available
-    const ratingM = block.match(/<span[^>]*class="[^"]*rating[^"]*"[^>]*>([\d.]+)/i);
-    const rating = ratingM ? ratingM[1] : '';
-
-    items.push({ id: slug, slug, title, poster: img, quality, year, rating, source: 'fojik', url: rawUrl });
+    items.push({ id: slug, slug, title, poster: img, quality, year, rating: '', source: 'fojik', url: rawUrl });
   }
 
   return items;
 }
 
 function parseFojikMoviePage(html, targetUrl, slug) {
-  // Title from og:title (most reliable)
   const ogTitleM = html.match(/<meta\s+property="og:title"\s+content="([^"]+)"/i);
   const h1M = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
   const rawTitle = (ogTitleM && ogTitleM[1]) || (h1M && h1M[1].replace(/<[^>]+>/g, '')) || slug;
   const title = decodeHtmlEntities(rawTitle.trim());
 
-  // Poster - og:image gives full size (not thumbnail)
   const ogImgM = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i);
   const poster = ogImgM ? ogImgM[1] : '';
 
-  // Screenshots from imgforwp.xyz or img.imgforwp.xyz
   const screenshots = [];
   const ssRe = /<img[^>]+src="(https?:\/\/img(?:forw[^"]+)\.(?:xyz|com)[^"]+)"/gi;
   let ssM;
   while ((ssM = ssRe.exec(html)) !== null) {
-    const ssUrl = ssM[1];
-    if (!screenshots.includes(ssUrl)) screenshots.push(ssUrl);
+    if (!screenshots.includes(ssM[1])) screenshots.push(ssM[1]);
   }
 
-  // Genres from .sgeneros
   const genres = [];
   const sgeneros = html.match(/<div[^>]*class="sgeneros"[^>]*>([\s\S]*?)<\/div>/i);
   if (sgeneros) {
@@ -221,20 +177,12 @@ function parseFojikMoviePage(html, targetUrl, slug) {
     }
   }
 
-  // IMDB rating
   const imdbM = html.match(/IMDb[^<]*<span[^>]*>([\d.]+)<\/span>/i)
-    || html.match(/class="[^"]*imdb[^"]*"[^>]*>([\d.]+)/i)
-    || html.match(/<span[^>]*class="[^"]*starstruck-rating[^"]*"[^>]*>[\s\S]*?([\d.]+)/i);
+    || html.match(/class="[^"]*imdb[^"]*"[^>]*>([\d.]+)/i);
   const imdbRating = imdbM ? imdbM[1] : '';
 
-  // Release date
-  const dateM = html.match(/<span[^>]*class="date"[^>]*>([^<]+)<\/span>/i)
-    || html.match(/<meta[^>]*property="article:published_time"[^>]*content="([^"]+)"/i);
-  const releaseDate = dateM ? dateM[1].trim() : '';
-
-  // Synopsis from .wp-content > p (first real paragraph)
-  const synopM = html.match(/<div[^>]*class="[^"]*wp-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
   let synopsis = '';
+  const synopM = html.match(/<div[^>]*class="[^"]*wp-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
   if (synopM) {
     const paragraphs = synopM[1].match(/<p[^>]*>([\s\S]*?)<\/p>/gi) || [];
     for (const p of paragraphs) {
@@ -246,17 +194,7 @@ function parseFojikMoviePage(html, targetUrl, slug) {
     }
   }
 
-  // Downloads — Fojik uses forms with single-quote attributes: name='FU' value='...' name='FN'
   const downloads = [];
-
-  // Helper: extract attr value from input tag (handles both single and double quotes)
-  function extractInputAttr(tag, attrName) {
-    const re = new RegExp('name=[\'"]' + attrName + '[\'"][^>]*value=[\'"]([^\'"]+)[\'"]', 'i');
-    const re2 = new RegExp('value=[\'"]([^\'"]+)[\'"][^>]*name=[\'"]' + attrName + '[\'"]', 'i');
-    const m = tag.match(re) || tag.match(re2);
-    return m ? m[1] : '';
-  }
-
   const formRe = /<form[^>]*action=['"]([^'"]+)['"][^>]*>([\s\S]{0,3000}?)<\/form>/gi;
   let fm;
   while ((fm = formRe.exec(html)) !== null) {
@@ -264,7 +202,6 @@ function parseFojikMoviePage(html, targetUrl, slug) {
     const inner = fm[2];
     if (!/name=['"]FU['"]/i.test(inner)) continue;
 
-    // Extract FU and FN values
     const inputTags = inner.match(/<input[^>]+>/gi) || [];
     let fu = '', fn = '';
     for (const tag of inputTags) {
@@ -277,7 +214,6 @@ function parseFojikMoviePage(html, targetUrl, slug) {
 
     if (!fu) continue;
 
-    // Get context around the form for quality/size info
     const formCtx = html.slice(Math.max(0, fm.index - 600), Math.min(html.length, fm.index + fm[0].length + 200));
     const qM = formCtx.match(/(4K UHD|4K|2160p|1080p|720p|480p|WEB-DL|WEBRip|BluRay|HDRip|HEVC)/i);
     const quality = qM ? qM[1].toUpperCase() : '1080P';
@@ -291,99 +227,86 @@ function parseFojikMoviePage(html, targetUrl, slug) {
     downloads.push({
       label: [quality, lang, size].filter(Boolean).join(' • ') || quality,
       quality, lang, size, host,
-      url: action,
-      fu, fn,
-      fojikFu: fu,
-      fojikFn: fn,
+      url: action, fu, fn,
+      fojikFu: fu, fojikFn: fn,
       isFojikForm: true,
     });
   }
 
-  // Stream links — look for video iframes or embed URLs
-  const streams = [];
-  const embedRe = /(?:src|data-src)="(https?:\/\/(?:www\.)?(?:youtube\.com\/embed|youtu\.be|embed\.fojik|player\.[^"]+|iframe\.[^"]+)[^"]*)"/gi;
-  let em;
-  while ((em = embedRe.exec(html)) !== null) {
-    const eUrl = em[1];
-    if (!streams.includes(eUrl)) streams.push({ url: eUrl, type: 'embed' });
-  }
-
   return {
     id: slug, slug, title, poster, screenshots,
-    synopsis, genres, imdbRating, releaseDate,
-    downloads, streams,
+    synopsis, genres, imdbRating,
+    downloads,
+    streams: downloads.map(d => ({
+      url: d.url, label: `${d.quality || 'HD'} • ${d.host || 'Fojik'}`,
+      isStream: true, fu: d.fu, fn: d.fn,
+    })),
     source: 'fojik', url: targetUrl,
   };
 }
 
-// ── Main ────────────────────────────────────────────────────────────────────────
 async function run() {
-  console.log('=== SKMovies Fojik Full Cache Populator v2.0 ===');
-  console.log(`  Output: ${CACHE_DIR}`);
-  console.log(`  Target: ${DETAILS_COUNT}+ items, Concurrency: ${CONCURRENCY}`);
+  console.log('=== SKMovies Fojik Whole-Site Cache Populator v4.0 ===');
+  console.log(`  Output: ${CACHE_DIR}, Concurrency: ${CONCURRENCY}`);
 
   const baseHost = 'https://fojik.site';
   const allSlugs = new Set();
   const allItems = [];
+  const addItem = (it) => {
+    if (!isValidMovieSlug(it.slug)) return;
+    if (!allSlugs.has(it.slug)) {
+      allSlugs.add(it.slug);
+      allItems.push(it);
+    }
+  };
 
-  // ── Step 1: Scrape homepage ──
-  console.log('\n[1/3] Scraping homepage...');
-  const rHome = await fetchRaw(baseHost + '/');
-  if (rHome.status === 200) {
-    const homeItems = parseFojikList(rHome.body, 'home');
-    homeItems.forEach(it => { if (!allSlugs.has(it.slug)) { allSlugs.add(it.slug); allItems.push(it); } });
-    console.log(`  Home: ${homeItems.length} items`);
-  }
-
-  // ── Step 2: Scrape genre pages ──
-  console.log(`\n[2/3] Scraping ${GENRE_PAGES.length} genre pages (${PAGES_PER_GENRE} pages each)...`);
+  // ── Step 1: Scrape genre pages (this is the most reliable source of movie slugs) ──
+  console.log('\n[1/3] Scraping all genre/category pages...');
   for (const genre of GENRE_PAGES) {
     let genreTotal = 0;
-    for (let page = 1; page <= PAGES_PER_GENRE; page++) {
+    for (let page = 1; page <= MAX_GENRE_PAGES; page++) {
       const url = page === 1 ? `${baseHost}/genre/${genre}/` : `${baseHost}/genre/${genre}/page/${page}/`;
       const r = await fetchRaw(url);
       if (r.status !== 200) break;
-      const items = parseFojikList(r.body, genre);
+      const items = parseFojikList(r.body);
       if (items.length === 0) break;
-
-      items.forEach(it => { if (!allSlugs.has(it.slug)) { allSlugs.add(it.slug); allItems.push(it); } });
+      items.forEach(addItem);
       genreTotal += items.length;
-      await sleep(500);
+      await sleep(300);
     }
-    if (genreTotal > 0) console.log(`  /genre/${genre}/: +${genreTotal} (total: ${allSlugs.size})`);
-    if (allSlugs.size >= DETAILS_COUNT * 2) break; // enough slugs
+    if (genreTotal > 0) process.stdout.write(`  /genre/${genre}: +${genreTotal} (total: ${allSlugs.size})\n`);
   }
 
-  console.log(`\n  Total unique slugs: ${allSlugs.size}`);
+  // ── Step 2: Scrape homepage ──
+  const rHome = await fetchRaw(baseHost + '/');
+  if (rHome.status === 200) parseFojikList(rHome.body).forEach(addItem);
 
-  // Save paginated list files (split into groups of 20 per page)
+  console.log(`\n  ✓ Total valid movie slugs: ${allSlugs.size}, cards: ${allItems.length}`);
+
+  // Save list files (20 per page)
   const PAGE_SIZE = 20;
-  const allItemsArr = allItems.slice(0, DETAILS_COUNT);
-  for (let p = 0; p < Math.ceil(allItemsArr.length / PAGE_SIZE); p++) {
-    const pageItems = allItemsArr.slice(p * PAGE_SIZE, (p + 1) * PAGE_SIZE);
-    const payload = { ok: true, page: p + 1, items: pageItems, hasMore: (p + 1) * PAGE_SIZE < allItemsArr.length, source: 'fojik', ts: Date.now() };
-    const fname = p === 0 ? 'latest.json' : `latest-${p + 1}.json`;
-    fs.writeFileSync(path.join(CACHE_DIR, fname), JSON.stringify(payload));
+  const totalPages = Math.ceil(allItems.length / PAGE_SIZE);
+  console.log(`\n[2/3] Writing ${totalPages} list cache files...`);
+  for (let p = 0; p < totalPages; p++) {
+    const pageItems = allItems.slice(p * PAGE_SIZE, (p + 1) * PAGE_SIZE);
+    const payload = { ok: true, page: p + 1, totalPages, items: pageItems, hasMore: p + 1 < totalPages, source: 'fojik', ts: Date.now() };
+    fs.writeFileSync(path.join(CACHE_DIR, p === 0 ? 'latest.json' : `latest-${p + 1}.json`), JSON.stringify(payload));
   }
+  fs.writeFileSync(path.join(CACHE_DIR, 'trending.json'), JSON.stringify({ ok: true, page: 1, items: allItems.slice(0, 20), hasMore: true, source: 'fojik', ts: Date.now() }));
 
-  // Save trending (first 20)
-  const tPayload = { ok: true, page: 1, items: allItemsArr.slice(0, 20), hasMore: true, source: 'fojik', ts: Date.now() };
-  fs.writeFileSync(path.join(CACHE_DIR, 'trending.json'), JSON.stringify(tPayload));
-  console.log(`\n  Saved ${Math.ceil(allItemsArr.length / PAGE_SIZE)} list pages (${allItemsArr.length} items total)`);
-
-  // ── Step 3: Fetch movie details ──
-  const slugList = Array.from(allSlugs).slice(0, DETAILS_COUNT);
-  console.log(`\n[3/3] Fetching ${slugList.length} movie detail pages...`);
+  // ── Step 3: Fetch details for all valid slugs ──
+  const slugList = Array.from(allSlugs);
+  console.log(`\n[3/3] Fetching detail pages for ${slugList.length} movies/series...`);
 
   const tasks = slugList.map((slug) => async () => {
     const safe = slug.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 200);
     const outPath = path.join(MOVIE_DIR, safe + '.json');
 
-    // Skip if recently cached (< 6h old)
+    // Skip fresh cache (< 12h old)
     if (fs.existsSync(outPath)) {
       try {
-        const existing = JSON.parse(fs.readFileSync(outPath, 'utf8'));
-        if (existing.ts && Date.now() - existing.ts < 6 * 3600 * 1000) return;
+        const ex = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+        if (ex.ts && Date.now() - ex.ts < 12 * 3600 * 1000) return;
       } catch {}
     }
 
@@ -396,12 +319,23 @@ async function run() {
       process.stdout.write(`    ✓ ${slug.slice(0, 40)} (${movie.downloads.length}dl ${movie.screenshots.length}ss)\n`);
     }
 
-    await sleep(350);
+    await sleep(280);
   });
 
+  // Also clean up any existing junk files in movie dir
+  const movieFiles = fs.readdirSync(MOVIE_DIR);
+  let cleaned = 0;
+  for (const f of movieFiles) {
+    const slugCheck = f.replace('.json', '');
+    if (!isValidMovieSlug(slugCheck)) {
+      fs.unlinkSync(path.join(MOVIE_DIR, f));
+      cleaned++;
+    }
+  }
+  if (cleaned > 0) console.log(`  ✓ Cleaned ${cleaned} junk detail files`);
+
   const result = await runWithConcurrency(tasks, CONCURRENCY);
-  console.log(`\n  ✓ Details: ${result.ok} ok, ${result.fail} fail`);
-  console.log(`\n✓ Done! ${allItemsArr.length} list items, ${result.ok} detail pages cached.`);
+  console.log(`\n✓ Done! ${allItems.length} movies in ${totalPages} pages, ${result.ok} detail pages cached!`);
 }
 
 run().catch((e) => { console.error('Fatal:', e); process.exit(1); });
