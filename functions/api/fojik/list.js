@@ -39,35 +39,43 @@ export async function onRequest(context) {
     } catch(e) {}
   }
 
-  // 2. Live scrape from fojik.site
-  var targetUrl = 'https://fojik.site/';
+  // 2. Live scrape from fojik.site / fojik.com
+  var pathSuffix = '/';
   if (type === 'search' && q) {
-    targetUrl = page > 1 ? `https://fojik.site/page/${page}/?s=${encodeURIComponent(q)}` : `https://fojik.site/?s=${encodeURIComponent(q)}`;
+    pathSuffix = page > 1 ? `/page/${page}/?s=${encodeURIComponent(q)}` : `/?s=${encodeURIComponent(q)}`;
   } else if (type === 'category' && catSlug) {
-    targetUrl = page > 1 ? `https://fojik.site/genre/${catSlug}/page/${page}/` : `https://fojik.site/genre/${catSlug}/`;
+    pathSuffix = page > 1 ? `/genre/${catSlug}/page/${page}/` : `/genre/${catSlug}/`;
   } else if (page > 1) {
-    targetUrl = `https://fojik.site/page/${page}/`;
+    pathSuffix = `/page/${page}/`;
   }
 
-  try {
-    var resp = await fetch(targetUrl, {
-      redirect: 'follow',
-      headers: {
-        'User-Agent': UA,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Referer': 'https://fojik.site/',
-      },
-    });
+  var candidateDomains = ['https://fojik.site', 'https://fojik.com'];
+  var items = [];
 
-    if (!resp.ok) return json({ ok: true, page: page, items: [], hasMore: false }, 200);
+  for (var i = 0; i < candidateDomains.length; i++) {
+    var targetUrl = candidateDomains[i] + pathSuffix;
+    try {
+      var resp = await fetch(targetUrl, {
+        redirect: 'follow',
+        headers: {
+          'User-Agent': UA,
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Referer': candidateDomains[i] + '/',
+        },
+      });
 
-    var html = await resp.text();
-    var items = parseFojikList(html);
-
-    return json({ ok: true, page: page, items: items, hasMore: items.length >= 12 }, 200, 120);
-  } catch (e) {
-    return json({ ok: false, error: e.message }, 200);
+      if (resp.ok) {
+        var html = await resp.text();
+        var parsed = parseFojikList(html);
+        if (parsed.length > 0) {
+          items = parsed;
+          break;
+        }
+      }
+    } catch (e) {}
   }
+
+  return json({ ok: true, page: page, items: items, hasMore: items.length >= 12 }, 200, 120);
 }
 
 function parseFojikList(html) {

@@ -1949,6 +1949,12 @@
       if (!state.filter18) params.set('adult', '1');
       const r = await fetchJson(urlJoin(getApi().latest, params.toString()), { signal: _listAbort.signal });
       items = respItems(r); state.hasMore = respHasMore(r);
+
+      if (state.source === 'fojik' && items.length === 0 && !append) {
+        items = await fetchFojikClientFallback();
+        state.hasMore = items.length >= 12;
+      }
+
       renderListResult(items, append);
     } catch (e) {
       if (e.name === 'AbortError') return;
@@ -2010,6 +2016,79 @@
       }
       dom.grid.innerHTML = '';
     }
+  }
+
+  async function fetchFojikClientFallback() {
+    try {
+      let pathSuffix = '/';
+      if (state.view === 'search' && state.searchQuery) {
+        pathSuffix = state.page > 1 ? `/page/${state.page}/?s=${encodeURIComponent(state.searchQuery)}` : `/?s=${encodeURIComponent(state.searchQuery)}`;
+      } else if (state.view === 'category' && state.categorySlug) {
+        pathSuffix = state.page > 1 ? `/genre/${state.categorySlug}/page/${state.page}/` : `/genre/${state.categorySlug}/`;
+      } else if (state.page > 1) {
+        pathSuffix = `/page/${state.page}/`;
+      }
+      const targetUrl = wrapInProxy(`https://fojik.site${pathSuffix}`);
+      const r = await fetch(targetUrl);
+      if (r.ok) {
+        const html = await r.text();
+        return parseFojikHtmlClient(html);
+      }
+    } catch (e) {
+      console.warn('Client fojik fallback error:', e);
+    }
+    return [];
+  }
+
+  function parseFojikHtmlClient(html) {
+    const items = [];
+    const seen = new Set();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const articles = doc.querySelectorAll('article, .result-item, .item, .post, .entry');
+    articles.forEach(el => {
+      const a = el.querySelector('.title a, h2 a, h3 a, h4 a, a[href*="/movie/"], a[href*="/series/"], a[href^="http"]');
+      if (!a) return;
+      const rawUrl = a.getAttribute('href') || '';
+      let title = a.textContent.trim();
+      const imgEl = el.querySelector('img');
+      const img = imgEl ? (imgEl.getAttribute('src') || imgEl.getAttribute('data-src') || imgEl.getAttribute('data-lazy-src') || '') : '';
+      if (!rawUrl || title.length < 3 || title.toLowerCase() === 'movie') return;
+      const sm = rawUrl.match(/\/(?:movie|series)\/([^/]+)/i) || rawUrl.match(/\/([^/]+)\/?$/i);
+      const slug = sm ? sm[1] : '';
+      if (!slug || slug === 'movie' || slug === 'genre' || seen.has(slug)) return;
+      seen.add(slug);
+
+      const qM = title.match(/(480p|720p|1080p|2160p|4k|hdrip|web-dl|bluray|hevc)/i);
+      const yM = title.match(/\b(19\d{2}|20\d{2})\b/);
+
+      items.push({
+        id: slug, slug: slug, title: title, poster: img,
+        quality: qM ? qM[1].toUpperCase() : 'HD',
+        year: yM ? yM[1] : '', rating: '', source: 'fojik', url: rawUrl
+      });
+    });
+
+    if (items.length === 0) {
+      doc.querySelectorAll('a[href*="/movie/"], a[href*="/series/"]').forEach(a => {
+        const href = a.getAttribute('href') || '';
+        const tText = a.textContent.trim();
+        if (!tText || tText.length < 3 || /read more|download|watch/i.test(tText)) return;
+        const sm = href.match(/\/(?:movie|series)\/([^/]+)/i) || href.match(/\/([^/]+)\/?$/i);
+        const s = sm ? sm[1] : '';
+        if (!s || s === 'movie' || seen.has(s)) return;
+        seen.add(s);
+        const qM = tText.match(/(480p|720p|1080p|2160p|4k|hdrip|web-dl|bluray|hevc)/i);
+        const yM = tText.match(/\b(19\d{2}|20\d{2})\b/);
+        items.push({
+          id: s, slug: s, title: tText, poster: '',
+          quality: qM ? qM[1].toUpperCase() : 'HD',
+          year: yM ? yM[1] : '', rating: '', source: 'fojik', url: href
+        });
+      });
+    }
+
+    return items;
   }
 
   /* ─── Movie modal ───────────────────────────────────────────────────── */
