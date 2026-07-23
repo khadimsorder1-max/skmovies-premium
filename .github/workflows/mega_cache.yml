@@ -21,23 +21,19 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Build Cache
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT_TOKEN || secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           GH_REPO: 'khadimsorder1-max/skmovies-cache'
           SKM_SITE: 'https://skmovies-premium.pages.dev'
           PAGES: '30'
           DETAILS: '500'
           CONCURRENCY: '4'
-          # fojik uses direct Node.js scraping (bypasses CF Worker 1106 block)
-          # moviebox/hdhub4u/hdhubmain use direct scraping
-          # mlsbd/fdm/fibwatch/krx18 use CF Worker proxy (which works fine for those)
           SOURCES: ${{ github.event.inputs.sources || 'moviebox,hdhub4u,hdhubmain,mlsbd,fdm,fibwatch,krx18,fojik' }}
         run: node scripts/build_cache.js
 
-  # Separate dedicated fojik cache job that runs more frequently
   build-fojik-cache:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -48,11 +44,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Build Fojik Cache (Direct Scrape)
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT_TOKEN || secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           GH_REPO: 'khadimsorder1-max/skmovies-cache'
           SKM_SITE: 'https://skmovies-premium.pages.dev'
           PAGES: '10'
