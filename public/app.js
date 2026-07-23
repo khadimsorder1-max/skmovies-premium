@@ -2946,8 +2946,6 @@
     return btns.join('');
   }
 
-  }
-
   /* ─── Section head + nav ────────────────────────────────────────────── */
   function updateSectionHead() {
     const titles = {
