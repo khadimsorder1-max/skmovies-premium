@@ -148,49 +148,6 @@ async function deepScrape(intermediateUrl) {
   }
 }
 
-    // Support .m3u / #EXTM3U stream playlist parsing (e.g. Multidownload / Multicloud .m3u links)
-    if (html.includes('#EXTM3U') || /\.m3u8?(\?|$)/i.test(intermediateUrl)) {
-      const lines = html.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-      const directUrls = lines.filter(l => /^https?:\/\//i.test(l));
-      if (directUrls.length > 0) return directUrls;
-    }
-
-    // Extract downloadUrl from scripts / links (e.g. MultiCloud / MultiDownload links)
-    const dlMatch = html.match(/downloadUrl\s*=\s*["']([^"']+)["']/i) ||
-                    html.match(/href=["']([^"']+\?download=true)["']/i);
-    if (dlMatch) {
-      try {
-        const fullDl = new URL(dlMatch[1], intermediateUrl).toString();
-        return [fullDl];
-      } catch (e) {}
-    }
-
-    // Specific MultiCloud / MultiDownload / dr1 direct link extraction
-    const drDirectUrls = [];
-    const drMatches = html.match(/href=["'](https?:\/\/(?:dr\d+\.multidownload\.[^"'\s<>]+|[^"'\s<>]*multicloudlinks\.com\/(?:player\.php\/\?v=|dl\/)[^"'\s<>]+))["']/gi) || [];
-    for (const m of drMatches) {
-      let rawUrl = m.replace(/href=["']|["']/gi, '').replace(/&amp;/g, '&');
-      if (rawUrl && !drDirectUrls.includes(rawUrl)) {
-        drDirectUrls.push(rawUrl);
-      }
-    }
-    if (drDirectUrls.length > 0) {
-      // Prioritize dr1.multidownload / direct download URL
-      return drDirectUrls;
-    }
-
-    // Match https://...mp4|mkv|m3u8|webm (with optional query)
-    const re = /https?:\/\/[^\s"'<>\)]+\.(?:mp4|mkv|webm|m3u8)(?:\?[^\s"'<>\)]*)?/gi;
-    const matches = html.match(re) || [];
-    return [...new Set(matches)];
-
-  } catch (e) {
-    console.warn('deepScrape failed for', intermediateUrl, e.message);
-    return [];
-  }
-}
-
-
 // Parse savelinks.me page HTML to extract file-host links.
 function parseSavelinksHtml(html) {
   const links = [];
