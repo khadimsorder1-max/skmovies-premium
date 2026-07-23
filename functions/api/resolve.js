@@ -151,8 +151,8 @@ async function deepScrape(intermediateUrl) {
 // Parse savelinks.me page HTML to extract file-host links.
 function parseSavelinksHtml(html) {
   const links = [];
-  // Pattern 1: <a href="https://gdflix.dev/file/...">
-  const aRe = /<a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+  // Match single or double quote hrefs
+  const aRe = /<a[^>]+href=['"](https?:\/\/[^'"]+)['"][^>]*>([\s\S]*?)<\/a>/gi;
   let m;
   while ((m = aRe.exec(html)) !== null) {
     const url = m[1];
@@ -192,22 +192,28 @@ async function resolveSavelinks(savelinksUrl) {
   const html = await resp.text();
   const hosts = parseSavelinksHtml(html);
 
-  // For each intermediate host, deep-scrape to find direct video URL.
-  // We do this in parallel with a small concurrency limit.
+  // Pre-process MultiCloud hosts to get instant high-speed direct play URLs
   const directUrls = [];
+  for (const h of hosts) {
+    const mcMatch = h.url.match(/(https?:\/\/[^\/]*multicloud[^\/]*)\/view\/([a-zA-Z0-9]+)/i) ||
+                    h.url.match(/(https?:\/\/[^\/]*multidownload[^\/]*)\/view\/([a-zA-Z0-9]+)/i);
+    if (mcMatch) {
+      const dlUrl = `${mcMatch[1]}/dl/${mcMatch[2]}`;
+      if (!directUrls.includes(dlUrl)) directUrls.push(dlUrl);
+    }
+  }
+
+  // For each intermediate host, deep-scrape to find direct video URL.
   const directByHost = {};
   const concurrency = 4;
   const queue = [...hosts];
   async function worker() {
     while (queue.length) {
       const h = queue.shift();
-      if (!h) return;
-      // Skip Telegram (not a file host)
-      if (h.host === 'Telegram') return;
+      if (!h || h.host === 'Telegram') return;
       if (!isIntermediate(h.url)) return;
       const deepUrls = await deepScrape(h.url);
       if (deepUrls.length > 0) {
-        // Pick the best (mp4 preferred)
         deepUrls.sort((a, b) => {
           const ra = ({ mp4: 0, m3u8: 1, webm: 2, mkv: 3 })[(a.match(/\.(mp4|mkv|m3u8|webm)/i) || [])[1]?.toLowerCase()] ?? 9;
           const rb = ({ mp4: 0, m3u8: 1, webm: 2, mkv: 3 })[(b.match(/\.(mp4|mkv|m3u8|webm)/i) || [])[1]?.toLowerCase()] ?? 9;
@@ -248,10 +254,17 @@ async function resolveFdmLink(fdmUrl) {
   if (!resp.ok) {
     return { ok: false, error: `FDM page returned ${resp.status}` };
   }
-  const html = await resp.text();
-  // Same parsing as savelinks
   const hosts = parseSavelinksHtml(html);
   const directUrls = [];
+  for (const h of hosts) {
+    const mcMatch = h.url.match(/(https?:\/\/[^\/]*multicloud[^\/]*)\/view\/([a-zA-Z0-9]+)/i) ||
+                    h.url.match(/(https?:\/\/[^\/]*multidownload[^\/]*)\/view\/([a-zA-Z0-9]+)/i);
+    if (mcMatch) {
+      const dlUrl = `${mcMatch[1]}/dl/${mcMatch[2]}`;
+      if (!directUrls.includes(dlUrl)) directUrls.push(dlUrl);
+    }
+  }
+
   const concurrency = 4;
   const queue = [...hosts];
   async function worker() {
