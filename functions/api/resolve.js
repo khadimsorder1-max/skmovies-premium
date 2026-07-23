@@ -116,7 +116,9 @@ function parseSavelinksHtml(html) {
   while ((m = aRe.exec(html)) !== null) {
     const url = m[1];
     const text = m[2].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
-    if (/gdflix|filepress|hubcloud|hubdrive|gdtot|multicloudlinks|busycdn|indexserver|hubstream|telegram|t\.me/i.test(url)) {
+    // Exclude Telegram links completely
+    if (/telegram|t\.me/i.test(url)) continue;
+    if (/gdflix|filepress|hubcloud|hubdrive|gdtot|multicloudlinks|busycdn|indexserver|hubstream/i.test(url)) {
       // Detect host label
       let host = 'Link';
       if (/gdflix/i.test(url)) host = 'GDFlix';
@@ -128,7 +130,6 @@ function parseSavelinksHtml(html) {
       else if (/busycdn/i.test(url)) host = 'BusyCDN';
       else if (/indexserver/i.test(url)) host = 'IndexServer';
       else if (/hubstream/i.test(url)) host = 'HubStream';
-      else if (/telegram|t\.me/i.test(url)) host = 'Telegram';
       links.push({ url, text: text || host, host });
     }
   }

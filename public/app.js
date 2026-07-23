@@ -1829,6 +1829,9 @@
 
   let currentCardIndex = -1;
   function renderGrid() {
+    if (lazyImageObserver) {
+      try { lazyImageObserver.disconnect(); } catch (_) {}
+    }
     if (state.items.length === 0) { dom.grid.innerHTML = ''; dom.empty.hidden = !state.isLoading; currentCardIndex = -1; return; }
     dom.grid.innerHTML = state.items.map(cardHtml).join('');
     dom.empty.hidden = true;
@@ -2923,40 +2926,25 @@
     const btns = [];
     const mkBtn = (label, href, icon, primary = false) =>
       `<a class="sheet__btn ${primary ? 'sheet__btn--primary' : ''}" href="${escapeHtml(href)}" target="_blank" rel="noopener"><span class="sheet__btn-icon">${icon}</span>${escapeHtml(label)}</a>`;
-    const dlSvg = '⬇️'; const browserSvg = '🌐';
-
-    // [#v3.5.0] Iframe player URL — uses our ad-blocking iframe-player.html.
-    // The iframe player fetches the stream via /api/proxy, extracts the
-    // direct video URL from iframe-based providers (hubstream.art,
-    // hdstream4u.com, etc.), and plays it in a clean <video> element
-    // WITHOUT loading the upstream's ads/redirects.
-    let iframeB64;
-    try { iframeB64 = btoa(rawStreamUrl); } catch (_) { iframeB64 = btoa(unescape(encodeURIComponent(rawStreamUrl))); }
-    iframeB64 = iframeB64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    const iframePlayerUrl = '/iframe-player.html?url=' + iframeB64 + '&title=' + encodeURIComponent(safeTitle);
+    const dlSvg = '⬇️';
 
     const hdhubPlayerUrl = '/hdhub4u/player.html?url=' + encodeURIComponent(rawStreamUrl) + '&source=skmovies&title=' + encodeURIComponent(safeTitle);
-    if (state.source === 'hdhub4u' || state.source === 'hdhubmain' || state.playerMode === 'hdhub4u') {
-      // [#v3.5.0] For HDHub sources: offer the ad-free iframe player FIRST
-      // (it can extract video from hubstream/hdstream4u iframes), then HDPlayer
-      // as a secondary option.
-      btns.push(`<a class="sheet__btn sheet__btn--primary" href="${escapeHtml(iframePlayerUrl)}" target="_blank" rel="noopener"><span class="sheet__btn-icon">▶️</span>Play (Ad-free Player)</a>`);
-      btns.push(`<a class="sheet__btn" href="${escapeHtml(hdhubPlayerUrl)}" target="_blank" rel="noopener"><span class="sheet__btn-icon">🎬</span>HDPlayer (alternate)</a>`);
-      btns.push(`<a class="sheet__btn play-in-browser-btn" href="#" data-url="${escapeHtml(rawStreamUrl)}" data-title="${escapeHtml(title)}"><span class="sheet__btn-icon">📺</span>Web Player Modal</a>`);
-    } else {
-      // [#v3.5.0] For non-HDHub sources: iframe player is primary.
-      btns.push(`<a class="sheet__btn sheet__btn--primary" href="${escapeHtml(iframePlayerUrl)}" target="_blank" rel="noopener"><span class="sheet__btn-icon">▶️</span>Play (Ad-free Player)</a>`);
-      btns.push(`<a class="sheet__btn play-in-browser-btn" href="#" data-url="${escapeHtml(rawStreamUrl)}" data-title="${escapeHtml(title)}"><span class="sheet__btn-icon">📺</span>Web Player Modal</a>`);
-      btns.push(`<a class="sheet__btn" href="${escapeHtml(hdhubPlayerUrl)}" target="_blank" rel="noopener"><span class="sheet__btn-icon">🎬</span>HDPlayer</a>`);
-    }
+
+    // 1. HDPlayer (Primary)
+    btns.push(`<a class="sheet__btn sheet__btn--primary" href="${escapeHtml(hdhubPlayerUrl)}" target="_blank" rel="noopener"><span class="sheet__btn-icon">🎬</span>HDPlayer</a>`);
+
+    // 2. External Player App (MX Player / VLC)
     if (d.isAndroid) {
       btns.push(mkBtn('External Player App', `intent:${intentStreamUrl}#Intent;action=android.intent.action.VIEW;type=video/*;end;`, '📱', false));
     } else {
       btns.push(mkBtn('External Player App', `vlc://${intentStreamUrl}`, '📱', false));
     }
-    btns.push(mkBtn('Browser Stream', streamUrl, browserSvg));
+
+    // 3. Direct Download
     btns.push(mkBtn('Direct Download', downloadUrl, dlSvg));
+
     return btns.join('');
+  }
 
   }
 
