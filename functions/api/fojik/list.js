@@ -51,6 +51,7 @@ export async function onRequest(context) {
 
   try {
     var resp = await fetch(targetUrl, {
+      redirect: 'follow',
       headers: {
         'User-Agent': UA,
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -72,29 +73,27 @@ export async function onRequest(context) {
 function parseFojikList(html) {
   var items = [];
   var seen = new Set();
-  var itemRe = /<article[^>]*>([\s\S]*?)<\/article>|<div[^>]*class="[^"]*result-item[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
+  var itemRe = /<article[^>]*>([\s\S]*?)<\/article>|<div[^>]*class="[^"]*(?:result-item|item|post|entry)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
   var m;
 
   while ((m = itemRe.exec(html)) !== null) {
     var block = m[1] || m[2];
     var titleM = block.match(/<div[^>]*class="title"[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i) ||
-                 block.match(/<h[23][^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i) ||
-                 block.match(/<a[^>]+href="(https?:\/\/[^"]*\/movie\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
-    var imgM = block.match(/<img[^>]+src="([^"]+)"/i) || block.match(/data-src="([^"]+)"/i);
+                 block.match(/<h[234][^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i) ||
+                 block.match(/<a[^>]+href="(https?:\/\/[^"]*\/(?:movie|series)\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/i) ||
+                 block.match(/<a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
+    var imgM = block.match(/<img[^>]+src="([^"]+)"/i) || block.match(/data-src="([^"]+)"/i) || block.match(/data-lazy-src="([^"]+)"/i);
 
     if (!titleM) continue;
 
     var rawUrl = titleM[1];
     var title = titleM[2].replace(/<[^>]+>/g, '').trim();
 
-    if (title.toLowerCase() === 'movie' || title.length < 3) {
-      var altM = block.match(/alt="([^"]+)"/i);
-      if (altM) title = altM[1];
-    }
+    if (!rawUrl || title.length < 3 || title.toLowerCase() === 'movie' || /genre|category|tag|page|\/$/i.test(rawUrl) && rawUrl.split('/').length < 5) continue;
 
-    var slugMatch = rawUrl.match(/\/movie\/([^/]+)/i) || rawUrl.match(/\/([^/]+)\/?$/i);
+    var slugMatch = rawUrl.match(/\/(?:movie|series)\/([^/]+)/i) || rawUrl.match(/\/([^/]+)\/?$/i);
     var slug = slugMatch ? slugMatch[1] : '';
-    if (!slug || seen.has(slug)) continue;
+    if (!slug || slug === 'movie' || slug === 'genre' || seen.has(slug)) continue;
     seen.add(slug);
 
     var img = imgM ? imgM[1] : '';
@@ -120,6 +119,37 @@ function parseFojikList(html) {
       source: 'fojik',
       url: rawUrl,
     });
+  }
+
+  // Fallback: If 0 items parsed from block regex, extract directly from <a> tags with movie/series URLs
+  if (items.length === 0) {
+    var aRe = /<a[^>]+href="(https?:\/\/[^"]*\/(?:movie|series)\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+    var am;
+    while ((am = aRe.exec(html)) !== null) {
+      var href = am[1];
+      var tText = am[2].replace(/<[^>]+>/g, '').trim();
+      if (!tText || tText.length < 3 || /read more|download|watch/i.test(tText)) continue;
+
+      var sm = href.match(/\/(?:movie|series)\/([^/]+)/i) || href.match(/\/([^/]+)\/?$/i);
+      var s = sm ? sm[1] : '';
+      if (!s || s === 'movie' || seen.has(s)) continue;
+      seen.add(s);
+
+      var qM = tText.match(/(480p|720p|1080p|2160p|4k|hdrip|web-dl|bluray|hevc)/i);
+      var yM = tText.match(/\b(19\d{2}|20\d{2})\b/);
+
+      items.push({
+        id: s,
+        slug: s,
+        title: tText,
+        poster: '',
+        quality: qM ? qM[1].toUpperCase() : 'HD',
+        year: yM ? yM[1] : '',
+        rating: '',
+        source: 'fojik',
+        url: href,
+      });
+    }
   }
 
   return items;
