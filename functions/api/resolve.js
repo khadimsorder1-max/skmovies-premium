@@ -66,18 +66,6 @@ function fetchWithTimeout(url, opts = {}, timeoutMs = FETCH_TIMEOUT_MS) {
 // Returns array of direct URLs (may be empty).
 async function deepScrape(intermediateUrl) {
   try {
-    // MultiCloud / MultiDownload instant resolution: /view/<id> -> /dl/<id> and /player.php/?v=<id>
-    const mcViewMatch = intermediateUrl.match(/(https?:\/\/[^\/]*multicloud[^\/]*)\/view\/([a-zA-Z0-9]+)/i) ||
-                        intermediateUrl.match(/(https?:\/\/[^\/]*multidownload[^\/]*)\/view\/([a-zA-Z0-9]+)/i);
-    if (mcViewMatch) {
-      const baseUrl = mcViewMatch[1];
-      const id = mcViewMatch[2];
-      return [
-        `${baseUrl}/dl/${id}`,
-        `${baseUrl}/player.php/?v=${id}`,
-      ];
-    }
-
     const resp = await fetchWithTimeout(intermediateUrl, {
       headers: {
         'User-Agent': UA,
@@ -88,7 +76,9 @@ async function deepScrape(intermediateUrl) {
       redirect: 'follow',
     });
 
-    if (!resp.ok) return [];
+    if (!resp.ok) {
+      throw new Error(`HTTP ${resp.status}`);
+    }
 
     const ct = resp.headers.get('content-type') || '';
     if (/video\//i.test(ct)) return [intermediateUrl];
@@ -192,16 +182,7 @@ async function resolveSavelinks(savelinksUrl) {
   const html = await resp.text();
   const hosts = parseSavelinksHtml(html);
 
-  // Pre-process MultiCloud hosts to get instant high-speed direct play URLs
   const directUrls = [];
-  for (const h of hosts) {
-    const mcMatch = h.url.match(/(https?:\/\/[^\/]*multicloud[^\/]*)\/view\/([a-zA-Z0-9]+)/i) ||
-                    h.url.match(/(https?:\/\/[^\/]*multidownload[^\/]*)\/view\/([a-zA-Z0-9]+)/i);
-    if (mcMatch) {
-      const dlUrl = `${mcMatch[1]}/dl/${mcMatch[2]}`;
-      if (!directUrls.includes(dlUrl)) directUrls.push(dlUrl);
-    }
-  }
 
   // For each intermediate host, deep-scrape to find direct video URL.
   const directByHost = {};
@@ -256,14 +237,6 @@ async function resolveFdmLink(fdmUrl) {
   }
   const hosts = parseSavelinksHtml(html);
   const directUrls = [];
-  for (const h of hosts) {
-    const mcMatch = h.url.match(/(https?:\/\/[^\/]*multicloud[^\/]*)\/view\/([a-zA-Z0-9]+)/i) ||
-                    h.url.match(/(https?:\/\/[^\/]*multidownload[^\/]*)\/view\/([a-zA-Z0-9]+)/i);
-    if (mcMatch) {
-      const dlUrl = `${mcMatch[1]}/dl/${mcMatch[2]}`;
-      if (!directUrls.includes(dlUrl)) directUrls.push(dlUrl);
-    }
-  }
 
   const concurrency = 4;
   const queue = [...hosts];
