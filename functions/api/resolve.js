@@ -66,20 +66,19 @@ function fetchWithTimeout(url, opts = {}, timeoutMs = FETCH_TIMEOUT_MS) {
 // Returns array of direct URLs (may be empty).
 async function deepScrape(intermediateUrl) {
   try {
-    // Transform MultiCloud /view/<id> directly to /player.php/?v=<id> and /dl/<id> for instant resolution
-    let targetFetchUrl = intermediateUrl;
-    let fallbackMcUrls = [];
+    // MultiCloud / MultiDownload instant resolution: /view/<id> -> /dl/<id> and /player.php/?v=<id>
     const mcViewMatch = intermediateUrl.match(/(https?:\/\/[^\/]*multicloud[^\/]*)\/view\/([a-zA-Z0-9]+)/i) ||
                         intermediateUrl.match(/(https?:\/\/[^\/]*multidownload[^\/]*)\/view\/([a-zA-Z0-9]+)/i);
     if (mcViewMatch) {
-      targetFetchUrl = `${mcViewMatch[1]}/player.php/?v=${mcViewMatch[2]}`;
-      fallbackMcUrls = [
-        `${mcViewMatch[1]}/dl/${mcViewMatch[2]}`,
-        `${mcViewMatch[1]}/player.php/?v=${mcViewMatch[2]}`,
+      const baseUrl = mcViewMatch[1];
+      const id = mcViewMatch[2];
+      return [
+        `${baseUrl}/dl/${id}`,
+        `${baseUrl}/player.php/?v=${id}`,
       ];
     }
 
-    const resp = await fetchWithTimeout(targetFetchUrl, {
+    const resp = await fetchWithTimeout(intermediateUrl, {
       headers: {
         'User-Agent': UA,
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -89,24 +88,65 @@ async function deepScrape(intermediateUrl) {
       redirect: 'follow',
     });
 
-    if (!resp.ok) {
-      return fallbackMcUrls;
-    }
+    if (!resp.ok) return [];
 
     const ct = resp.headers.get('content-type') || '';
     if (/video\//i.test(ct)) return [intermediateUrl];
     const html = await resp.text();
 
-    // 1. Extract streamSrc = "https://dr1.multidownload.website/d/..." from player.php
+    // Extract streamSrc = "https://dr1.multidownload.website/d/..." from player.php
     const streamSrcMatch = html.match(/streamSrc\s*=\s*["']([^"']+)["']/i);
     if (streamSrcMatch) {
-      const streamUrl = streamSrcMatch[1].replace(/&amp;/g, '&');
-      return [streamUrl, ...fallbackMcUrls];
+      return [streamSrcMatch[1].replace(/&amp;/g, '&')];
     }
 
-    if (fallbackMcUrls.length > 0) {
-      return fallbackMcUrls;
+    // Support .m3u / #EXTM3U stream playlist parsing
+    if (html.includes('#EXTM3U') || /\.m3u8?(\?|$)/i.test(intermediateUrl)) {
+      const lines = html.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+      const directUrls = lines.filter(l => /^https?:\/\//i.test(l));
+      if (directUrls.length > 0) return directUrls;
     }
+
+    // Extract downloadUrl from scripts / links
+    const dlMatch = html.match(/downloadUrl\s*=\s*["']([^"']+)["']/i) ||
+                    html.match(/href=["']([^"']+\?download=true)["']/i);
+    if (dlMatch) {
+      try {
+        const fullDl = new URL(dlMatch[1], intermediateUrl).toString();
+        return [fullDl];
+      } catch (e) {}
+    }
+
+    // Specific MultiCloud / MultiDownload / dr1 direct link extraction
+    const drDirectUrls = [];
+    const drMatches = html.match(/href=["'](https?:\/\/(?:dr\d+\.multidownload\.[^"'\s<>]+|[^"'\s<>]*multicloudlinks\.com\/(?:player\.php\/\?v=|dl\/)[^"'\s<>]+))["']/gi) || [];
+    for (const m of drMatches) {
+      let rawUrl = m.replace(/href=["']|["']/gi, '').replace(/&amp;/g, '&');
+      if (rawUrl && !drDirectUrls.includes(rawUrl)) {
+        drDirectUrls.push(rawUrl);
+      }
+    }
+    if (drDirectUrls.length > 0) {
+      return drDirectUrls;
+    }
+
+    const re = /https?:\/\/[^\s"'<>\)]+\.(?:mp4|mkv|webm|m3u8)(?:\?[^\s"'<>\)]*)?/gi;
+    const matches = html.match(re) || [];
+    return [...new Set(matches)];
+
+  } catch (e) {
+    console.warn('deepScrape failed for', intermediateUrl, e.message);
+    const mcViewMatch = intermediateUrl.match(/(https?:\/\/[^\/]*multicloud[^\/]*)\/view\/([a-zA-Z0-9]+)/i) ||
+                        intermediateUrl.match(/(https?:\/\/[^\/]*multidownload[^\/]*)\/view\/([a-zA-Z0-9]+)/i);
+    if (mcViewMatch) {
+      return [
+        `${mcViewMatch[1]}/dl/${mcViewMatch[2]}`,
+        `${mcViewMatch[1]}/player.php/?v=${mcViewMatch[2]}`,
+      ];
+    }
+    return [];
+  }
+}
 
     // Support .m3u / #EXTM3U stream playlist parsing (e.g. Multidownload / Multicloud .m3u links)
     if (html.includes('#EXTM3U') || /\.m3u8?(\?|$)/i.test(intermediateUrl)) {
