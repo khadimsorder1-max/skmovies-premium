@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * SKMovies Mega Cache Builder v4.11.13
+ * SKMovies Mega Cache Builder v4.11.14
  * ---------------------------------------------------------------------------
  * Scrapes all sources DIRECTLY (bypassing CF Worker limits) and writes JSON
  * to GitHub repo for edge serving.
@@ -462,48 +462,133 @@ async function buildGenericSource(src) {
 }
 
 
-// ── Fojik source ─────────────────────────────────────────────────────────
+// ── Fojik source — scrapes fojik.com DIRECTLY (bypasses CF bot protection) ──
 async function buildFojik() {
-  console.log('\n=== Building cache: fojik (via SKM API + flatten) ===');
+  console.log('\n=== Building cache: fojik (DIRECT scrape fojik.com) ===');
   var allSlugs = new Set();
-  try {
-    var t = await fetchJson(getTrendingUrl('fojik'));
-    await githubPutFile('fojik/trending.json', JSON.stringify(t), 'cache: fojik trending');
-    console.log('  ✓ fojik/trending.json (' + respItems(t).length + ' items)');
-  } catch(e) { console.warn('  ✗ fojik trending: ' + e.message); }
 
+  // List pages — scrape fojik.com directly
   for (var page = 1; page <= PAGES_PER_SOURCE; page++) {
     try {
-      var data = await fetchJson(getListUrl('fojik', page));
-      var items = respItems(data);
+      var listUrl = page > 1 ? 'https://fojik.com/page/' + page + '/' : 'https://fojik.com/';
+      var r = await fetchRaw(listUrl, { timeout: 20000 });
+      if (r.status !== 200) { console.warn('  ✗ fojik page ' + page + ': HTTP ' + r.status); break; }
+      var items = parseFojikListDirect(r.body);
       if (items.length === 0) { console.log('  · fojik page ' + page + ': empty'); break; }
       var filename = 'fojik/latest' + (page > 1 ? '-' + page : '') + '.json';
-      await githubPutFile(filename, JSON.stringify(data), 'cache: fojik page ' + page);
+      var payload = { ok: true, page: page, items: items, hasMore: items.length >= 12, source: 'fojik', ts: Date.now() };
+      await githubPutFile(filename, JSON.stringify(payload), 'cache: fojik page ' + page);
       items.forEach(function(it) { if (it.slug) allSlugs.add(it.slug); });
       console.log('  ✓ ' + filename + ' (' + items.length + ')');
-      if (data.hasMore === false) break;
-      await sleep(400);
+      await sleep(500);
     } catch(e) { console.warn('  ✗ fojik page ' + page + ': ' + e.message); break; }
   }
+
+  // Trending = first page
+  try {
+    var tr = await fetchRaw('https://fojik.com/', { timeout: 20000 });
+    var titems = parseFojikListDirect(tr.body);
+    await githubPutFile('fojik/trending.json', JSON.stringify({ ok: true, page: 1, items: titems, hasMore: true, source: 'fojik', ts: Date.now() }), 'cache: fojik trending');
+    console.log('  ✓ fojik/trending.json (' + titems.length + ' items)');
+  } catch(e) { console.warn('  ✗ fojik trending: ' + e.message); }
+
   console.log('  → Total fojik slugs: ' + allSlugs.size);
 
+  // Movie details — scrape fojik.com directly
   var slugs = Array.from(allSlugs).slice(0, DETAILS_PER_SOURCE);
   var tasks = slugs.map(function(slug) {
     return async function() {
-      var data = await fetchJson(getMovieUrl('fojik', slug));
-      // [#v4.11.13] FLATTEN: if response has { movie: {...} } but no top-level downloads,
-      // merge movie fields to top level so frontend normalizeMovie() works.
-      if (data.movie && !data.downloads) {
-        data = Object.assign({}, data.movie, { ok: true, movie: data.movie });
+      try {
+        var movieUrl = 'https://fojik.com/movie/' + slug + '/';
+        var mr = await fetchRaw(movieUrl, { timeout: 20000 });
+        if (mr.status !== 200) throw new Error('HTTP ' + mr.status);
+        var movie = parseFojikMovieDirect(mr.body, movieUrl, slug);
+        if (!movie || !movie.downloads || movie.downloads.length === 0) throw new Error('no downloads');
+        var safe = slug.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 200);
+        var payload = Object.assign({ ok: true, movie: movie }, movie);
+        await githubPutFile('fojik/movie/' + safe + '.json', JSON.stringify(payload), 'cache: fojik movie');
+      } catch(e) {
+        // Fallback: try SKM API
+        try {
+          var data = await fetchJson(getMovieUrl('fojik', slug));
+          if (data.movie && !data.downloads) data = Object.assign({}, data.movie, { ok: true, movie: data.movie });
+          if (data.ok && data.downloads && data.downloads.length > 0) {
+            var safe2 = slug.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 200);
+            await githubPutFile('fojik/movie/' + safe2 + '.json', JSON.stringify(data), 'cache: fojik movie (API fallback)');
+          }
+        } catch(e2) {}
       }
-      if (!data.ok) throw new Error(data.error || 'not ok');
-      var safe = slug.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 200);
-      await githubPutFile('fojik/movie/' + safe + '.json', JSON.stringify(data), 'cache: fojik movie');
-      await sleep(400);
+      await sleep(500);
     };
   });
   var res = await runWithConcurrency(tasks, CONCURRENCY);
   console.log('  ✓ fojik details: ' + res.ok + ' ok, ' + res.fail + ' fail');
+}
+
+function parseFojikListDirect(html) {
+  var items = [];
+  var seen = new Set();
+  // Match article/post links
+  var re = /<a[^>]+href="(https?:\/\/(?:fojik\.com|fojik\.site)\/(?:movie|series)\/([^"\/]+)\/?)"[^>]*>([\s\S]*?)<\/a>/gi;
+  var m;
+  while ((m = re.exec(html)) !== null) {
+    var slug = m[2];
+    if (seen.has(slug)) continue;
+    seen.add(slug);
+    var inner = m[3];
+    var titleM = inner.match(/<img[^>]+alt="([^"]+)"/i) || inner.match(/>([^<]{3,200})</);
+    var title = titleM ? titleM[1].trim() : slug.replace(/-/g, ' ');
+    var imgM = inner.match(/<img[^>]+src="([^"]+)"/i) || inner.match(/<img[^>]+data-src="([^"]+)"/i);
+    var poster = imgM ? imgM[1] : '';
+    var qM = title.match(/(480p|720p|1080p|2160p|4K|HEVC|WEB-DL|WEBRip|BluRay|HDRip|HDTC)/i);
+    var yM = title.match(/\b(19\d{2}|20\d{2})\b/);
+    items.push({
+      id: slug, slug: slug, title: title, poster: poster,
+      quality: qM ? qM[1].toUpperCase() : 'HD',
+      year: yM ? yM[1] : '', rating: '', source: 'fojik', url: m[1],
+    });
+  }
+  return items;
+}
+
+function parseFojikMovieDirect(html, targetUrl, slug) {
+  function unesc(s) { return (s||'').replace(/&amp;/g,'&').replace(/&#039;/g,"'").replace(/&quot;/g,'"').replace(/&#0?38;/g,'&'); }
+  var titleM = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  var title = titleM ? unesc(titleM[1].replace(/<[^>]+>/g, '').trim()) : slug.replace(/-/g, ' ');
+  var posterM = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i);
+  var poster = posterM ? posterM[1] : '';
+  var storyM = html.match(/<meta\s+name="description"\s+content="([^"]+)"/i);
+  var storyline = storyM ? unesc(storyM[1]) : '';
+  var genres = [];
+  var genreRe = /<a[^>]+href="[^"]*\/genre\/[^"]+"[^>]*>([^<]+)<\/a>/gi;
+  var gm;
+  while ((gm = genreRe.exec(html)) !== null) { var g = gm[1].trim(); if (g && g.length < 30 && genres.indexOf(g) === -1) genres.push(g); }
+
+  var downloads = [];
+  var formRe = /<form[^>]*action=['"]([^'"]+)['"][^>]*>([\s\S]{0,3000}?)<\/form>/gi;
+  var fm;
+  while ((fm = formRe.exec(html)) !== null) {
+    var action = fm[1]; var inner = fm[2];
+    if (!/name=['"]FU['"]/i.test(inner)) continue;
+    var inputTags = inner.match(/<input[^>]+>/gi) || [];
+    var fu = '', fn = '';
+    for (var j = 0; j < inputTags.length; j++) {
+      var tag = inputTags[j];
+      var nameM = tag.match(/name=['"]([^'"]+)['"]/i);
+      var valM = tag.match(/value=['"]([^'"]*)['"]/i);
+      if (!nameM || !valM) continue;
+      if (nameM[1].toUpperCase() === 'FU') fu = valM[1];
+      if (nameM[1].toUpperCase() === 'FN') fn = unesc(valM[1]);
+    }
+    if (!fu) continue;
+    var formCtx = html.slice(Math.max(0, fm.index - 600), Math.min(html.length, fm.index + fm[0].length + 200));
+    var qualityM = formCtx.match(/(4K|2160p|1080p|720p|480p|WEB-DL|WEBRip|HEVC)/i);
+    var quality = qualityM ? qualityM[1].toUpperCase() : 'HD';
+    var sizeM = formCtx.match(/(\d+(?:\.\d+)?\s*(?:MB|GB))/i);
+    var size = sizeM ? sizeM[1] : '';
+    downloads.push({ label: [quality, size].filter(Boolean).join(' • ') || quality, url: action, savelinks_url: action, fu: fu, fn: fn, fojikFu: fu, fojikFn: fn, quality: quality, size: size, host: 'Fojik', isDirect: false, isFojikForm: true });
+  }
+  return { id: slug, slug: slug, title: title, poster: poster, storyline: storyline, genres: genres, downloads: downloads, source: 'fojik', url: targetUrl };
 }
 
 // ── Nongor source ────────────────────────────────────────────────────────
@@ -547,7 +632,7 @@ async function buildNongor() {
 
 // ── MAIN ────────────────────────────────────────────────────────────────────
 async function main() {
-  console.log('SKMovies Mega Cache Builder v4.11.13');
+  console.log('SKMovies Mega Cache Builder v4.11.14');
   console.log('  Site: ' + SKM_SITE + '  Repo: ' + GH_REPO + '  Pages: ' + PAGES_PER_SOURCE + '  Details: ' + DETAILS_PER_SOURCE);
   var requested = (process.env.SOURCES || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
   var all = requested.length > 0 ? requested : ['moviebox', 'hdhub4u', 'hdhubmain', 'mlsbd', 'fdm', 'fibwatch', 'fojik', 'krx18', 'nongor'];
