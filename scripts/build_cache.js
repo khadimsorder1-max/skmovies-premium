@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * SKMovies Mega Cache Builder v3.5.2
+ * SKMovies Mega Cache Builder v4.11.13
  * ---------------------------------------------------------------------------
  * Scrapes all sources DIRECTLY (bypassing CF Worker limits) and writes JSON
  * to GitHub repo for edge serving.
@@ -35,8 +35,6 @@ const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
 // Generic HTTP fetch with redirect follow
 function fetchRaw(url, opts) {
   opts = opts || {};
-  var redirectCount = opts._redirectCount || 0;
-  if (redirectCount > 5) return Promise.reject(new Error('Too many redirects: ' + url));
   return new Promise(function(resolve, reject) {
     var u;
     try { u = new URL(url); } catch(e) { return reject(new Error('Invalid URL: ' + url)); }
@@ -56,8 +54,7 @@ function fetchRaw(url, opts) {
     var req = lib.request(reqOpts, function(res) {
       if ([301,302,303,307,308].indexOf(res.statusCode) !== -1 && res.headers.location) {
         var loc = res.headers.location.startsWith('http') ? res.headers.location : (u.protocol + '//' + u.host + res.headers.location);
-        var nextOpts = Object.assign({}, opts, { _redirectCount: redirectCount + 1 });
-        return fetchRaw(loc, nextOpts).then(resolve).catch(reject);
+        return fetchRaw(loc, opts).then(resolve).catch(reject);
       }
       var body = '';
       res.on('data', function(c) { body += c; });
@@ -85,42 +82,29 @@ async function fetchJson(url, opts) {
 async function githubPutFile(path, content, message) {
   var url = 'https://api.github.com/repos/' + GH_REPO + '/contents/' + path;
   var sha;
-  var existingBase64 = null;
   try {
     var r = await fetchRaw(url, { headers: { Authorization: 'Bearer ' + GH_TOKEN, Accept: 'application/vnd.github+json' } });
-    if (r.status === 200) {
-      var data = JSON.parse(r.body);
-      sha = data.sha;
-      if (data.content) existingBase64 = data.content.replace(/\n/g, '').replace(/\r/g, '');
-    }
+    if (r.status === 200) sha = JSON.parse(r.body).sha;
   } catch(e) {}
-
-  var newBase64 = Buffer.from(content).toString('base64');
-  if (existingBase64 === newBase64) {
-    return { status: 'skipped', path: path };
-  }
-
   var body = JSON.stringify({
     message: message || ('cache: ' + path),
-    content: newBase64,
+    content: Buffer.from(content).toString('base64'),
     branch: GH_BRANCH,
     ...(sha ? { sha: sha } : {}),
   });
-
-  for (var attempt = 0; attempt < 4; attempt++) {
+  for (var attempt = 0; attempt < 3; attempt++) {
     try {
       var r2 = await fetchRaw(url, {
         method: 'PUT',
         headers: { Authorization: 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json', Accept: 'application/vnd.github+json' },
         body: body,
       });
-      if (r2.status === 200 || r2.status === 201) return { status: 'updated', path: path };
-      if (r2.status === 409) { await sleep(1500 + attempt * 1000); continue; }
-      if (r2.status === 403 || r2.status === 429) { await sleep(3000 + attempt * 2000); continue; } // Rate limits
+      if (r2.status === 200 || r2.status === 201) return;
+      if (r2.status === 409) { await sleep(1000); continue; }
       throw new Error('GitHub ' + r2.status + ': ' + r2.body.slice(0, 200));
     } catch(e) {
-      if (attempt === 3) throw e;
-      await sleep(1500);
+      if (attempt === 2) throw e;
+      await sleep(1000);
     }
   }
 }
@@ -420,24 +404,26 @@ function getListUrl(src, page) {
   if (src === 'mlsbd') return SKM_SITE + '/api/latest?page=' + page;
   if (src === 'fdm') return SKM_SITE + '/api/fdm/latest?page=' + page;
   if (src === 'fibwatch') return SKM_SITE + '/api/fibwatch/latest?page=' + page;
-  if (src === 'krx18') return SKM_SITE + '/api/krx18/list?type=home&page=' + page;
   if (src === 'fojik') return SKM_SITE + '/api/fojik/list?type=home&page=' + page;
+  if (src === 'krx18') return SKM_SITE + '/api/krx18/list?type=home&page=' + page;
+  if (src === 'nongor') return SKM_SITE + '/api/nongor/latest?page=' + page + '&sort=year_desc';
 }
 function getTrendingUrl(src) {
   if (src === 'mlsbd') return SKM_SITE + '/api/trending';
   if (src === 'fdm') return SKM_SITE + '/api/fdm/trending';
-  if (src === 'fibwatch') return SKM_SITE + '/api/fibwatch/latest';
-  if (src === 'krx18') return SKM_SITE + '/api/krx18/list?type=home';
-  if (src === 'fojik') return SKM_SITE + '/api/fojik/list?type=home';
+  if (src === 'fibwatch') return SKM_SITE + '/api/fibwatch/trending';
+  if (src === 'fojik') return SKM_SITE + '/api/fojik/list?type=home&page=1';
+  if (src === 'krx18') return SKM_SITE + '/api/krx18/list?type=home&page=1';
+  if (src === 'nongor') return SKM_SITE + '/api/nongor/latest?page=1&sort=top_rated';
 }
 function getMovieUrl(src, slug) {
   if (src === 'mlsbd') return SKM_SITE + '/api/movie?slug=' + encodeURIComponent(slug);
   if (src === 'fdm') return SKM_SITE + '/api/fdm/movie?slug=' + encodeURIComponent(slug);
   if (src === 'fibwatch') return SKM_SITE + '/api/fibwatch/movie?slug=' + encodeURIComponent(slug);
+  if (src === 'fojik') return SKM_SITE + '/api/fojik/movie?slug=' + encodeURIComponent(slug) + '&_cb=' + Date.now();
   if (src === 'krx18') return SKM_SITE + '/api/krx18/movie?slug=' + encodeURIComponent(slug);
-  if (src === 'fojik') return SKM_SITE + '/api/fojik/movie?slug=' + encodeURIComponent(slug);
+  if (src === 'nongor') return SKM_SITE + '/api/nongor/movie?slug=' + encodeURIComponent(slug) + '&_cb=' + Date.now();
 }
-
 function respItems(r) { return r ? (r.movies || r.items || []) : []; }
 
 async function buildGenericSource(src) {
@@ -475,133 +461,109 @@ async function buildGenericSource(src) {
   console.log('  ✓ ' + src + ' details: ' + res.ok + ' ok, ' + res.fail + ' fail');
 }
 
-// ── MAIN ────────────────────────────────────────────────────────────────────
-async function main() {
-  console.log('SKMovies Mega Cache Builder v3.5.2');
-  console.log('  Site: ' + SKM_SITE + '  Repo: ' + GH_REPO + '  Pages: ' + PAGES_PER_SOURCE + '  Details: ' + DETAILS_PER_SOURCE);
-  var requested = (process.env.SOURCES || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-  var all = requested.length > 0 ? requested : ['moviebox', 'hdhub4u', 'hdhubmain', 'mlsbd', 'fdm', 'fibwatch', 'krx18', 'fojik'];
 
-
-  for (var i = 0; i < all.length; i++) {
-    var src = all[i];
-    try {
-      if (src === 'moviebox') await buildMoviebox();
-      else if (src === 'hdhub4u') await buildHDHub('hdhub4u', HDHUB4U_HOSTS);
-      else if (src === 'hdhubmain') await buildHDHub('hdhubmain', HDHUBMAIN_HOSTS);
-      else if (src === 'fojik') await buildFojikDirect();
-      else await buildGenericSource(src);
-    } catch(e) { console.error('FATAL ' + src + ': ' + e.message); }
-  }
-  console.log('\n✓ Cache build complete!');
-}
-
-async function buildFojikDirect() {
-  console.log('\n=== Building cache: fojik (Direct Scrape) ===');
+// ── Fojik source ─────────────────────────────────────────────────────────
+async function buildFojik() {
+  console.log('\n=== Building cache: fojik (via SKM API + flatten) ===');
   var allSlugs = new Set();
-  var baseHost = 'https://fojik.site';
+  try {
+    var t = await fetchJson(getTrendingUrl('fojik'));
+    await githubPutFile('fojik/trending.json', JSON.stringify(t), 'cache: fojik trending');
+    console.log('  ✓ fojik/trending.json (' + respItems(t).length + ' items)');
+  } catch(e) { console.warn('  ✗ fojik trending: ' + e.message); }
 
   for (var page = 1; page <= PAGES_PER_SOURCE; page++) {
     try {
-      var url = page === 1 ? baseHost + '/' : baseHost + '/page/' + page + '/';
-      var r = await fetchRaw(url);
-      if (r.status >= 400) break;
-      var items = parseFojikListDirect(r.body);
-      if (items.length === 0) break;
-      var payload = { ok: true, page: page, items: items, hasMore: items.length >= 12, source: 'fojik', ts: Date.now() };
+      var data = await fetchJson(getListUrl('fojik', page));
+      var items = respItems(data);
+      if (items.length === 0) { console.log('  · fojik page ' + page + ': empty'); break; }
       var filename = 'fojik/latest' + (page > 1 ? '-' + page : '') + '.json';
-      await githubPutFile(filename, JSON.stringify(payload), 'cache: fojik page ' + page);
+      await githubPutFile(filename, JSON.stringify(data), 'cache: fojik page ' + page);
       items.forEach(function(it) { if (it.slug) allSlugs.add(it.slug); });
-      console.log('  ✓ ' + filename + ' (' + items.length + ' items, total: ' + allSlugs.size + ')');
-      await sleep(1000);
+      console.log('  ✓ ' + filename + ' (' + items.length + ')');
+      if (data.hasMore === false) break;
+      await sleep(400);
     } catch(e) { console.warn('  ✗ fojik page ' + page + ': ' + e.message); break; }
   }
-
-  try {
-    var r1 = await fetchRaw(baseHost + '/');
-    if (r1.status === 200) {
-      var titems = parseFojikListDirect(r1.body);
-      await githubPutFile('fojik/trending.json', JSON.stringify({ ok: true, page: 1, items: titems, hasMore: true, source: 'fojik', ts: Date.now() }), 'cache: fojik trending');
-      console.log('  ✓ fojik/trending.json (' + titems.length + ' items)');
-    }
-  } catch(e) {}
+  console.log('  → Total fojik slugs: ' + allSlugs.size);
 
   var slugs = Array.from(allSlugs).slice(0, DETAILS_PER_SOURCE);
-  console.log('  → Fetching ' + slugs.length + ' fojik movie details...');
   var tasks = slugs.map(function(slug) {
     return async function() {
-      var mUrl = baseHost + '/movie/' + slug + '/';
-      var r = await fetchRaw(mUrl);
-      if (r.status !== 200) {
-        mUrl = baseHost + '/' + slug + '/';
-        r = await fetchRaw(mUrl);
+      var data = await fetchJson(getMovieUrl('fojik', slug));
+      // [#v4.11.13] FLATTEN: if response has { movie: {...} } but no top-level downloads,
+      // merge movie fields to top level so frontend normalizeMovie() works.
+      if (data.movie && !data.downloads) {
+        data = Object.assign({}, data.movie, { ok: true, movie: data.movie });
       }
-      if (r.status === 200) {
-        var movie = parseFojikMoviePageDirect(r.body, mUrl, slug);
-        var safe = slug.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 200);
-        var payload = { ok: true, movie: movie, ts: Date.now() };
-        await githubPutFile('fojik/movie/' + safe + '.json', JSON.stringify(payload), 'cache: fojik movie');
-      }
-      await sleep(500);
+      if (!data.ok) throw new Error(data.error || 'not ok');
+      var safe = slug.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 200);
+      await githubPutFile('fojik/movie/' + safe + '.json', JSON.stringify(data), 'cache: fojik movie');
+      await sleep(400);
     };
   });
   var res = await runWithConcurrency(tasks, CONCURRENCY);
   console.log('  ✓ fojik details: ' + res.ok + ' ok, ' + res.fail + ' fail');
 }
 
-function parseFojikListDirect(html) {
-  var items = [];
-  var seen = new Set();
-  var itemRe = /<article[^>]*>([\s\S]*?)<\/article>|<div[^>]*class="[^"]*(?:result-item|item|post|entry)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
-  var m;
-  while ((m = itemRe.exec(html)) !== null) {
-    var block = m[1] || m[2];
-    var titleM = block.match(/<div[^>]*class="title"[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i) ||
-                 block.match(/<h[234][^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i) ||
-                 block.match(/<a[^>]+href="(https?:\/\/[^"]*\/(?:movie|series)\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/i) ||
-                 block.match(/<a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
-    var imgM = block.match(/<img[^>]+src="([^"]+)"/i) || block.match(/data-src="([^"]+)"/i);
-    if (!titleM) continue;
-    var rawUrl = titleM[1];
-    var title = titleM[2].replace(/<[^>]+>/g, '').trim();
-    if (!rawUrl || title.length < 3 || title.toLowerCase() === 'movie') continue;
-    var sm = rawUrl.match(/\/(?:movie|series)\/([^/]+)/i) || rawUrl.match(/\/([^/]+)\/?$/i);
-    var slug = sm ? sm[1] : '';
-    if (!slug || slug === 'movie' || slug === 'genre' || seen.has(slug)) continue;
-    seen.add(slug);
-    var img = imgM ? imgM[1] : '';
-    if (img.startsWith('//')) img = 'https:' + img;
-    var qM = title.match(/(480p|720p|1080p|2160p|4k|hdrip|web-dl|bluray|hevc)/i);
-    var yM = title.match(/\b(19\d{2}|20\d{2})\b/);
-    items.push({ id: slug, slug: slug, title: title, poster: img, quality: qM ? qM[1].toUpperCase() : 'HD', year: yM ? yM[1] : '', rating: '', source: 'fojik', url: rawUrl });
+// ── Nongor source ────────────────────────────────────────────────────────
+async function buildNongor() {
+  console.log('\n=== Building cache: nongor (via SKM API) ===');
+  var allSlugs = new Set();
+  try {
+    var t = await fetchJson(getTrendingUrl('nongor'));
+    await githubPutFile('nongor/trending.json', JSON.stringify(t), 'cache: nongor trending');
+    console.log('  ✓ nongor/trending.json (' + respItems(t).length + ' items)');
+  } catch(e) { console.warn('  ✗ nongor trending: ' + e.message); }
+
+  for (var page = 1; page <= PAGES_PER_SOURCE; page++) {
+    try {
+      var data = await fetchJson(getListUrl('nongor', page));
+      var items = respItems(data);
+      if (items.length === 0) { console.log('  · nongor page ' + page + ': empty'); break; }
+      var filename = 'nongor/latest' + (page > 1 ? '-' + page : '') + '.json';
+      await githubPutFile(filename, JSON.stringify(data), 'cache: nongor page ' + page);
+      items.forEach(function(it) { if (it.slug) allSlugs.add(it.slug); });
+      console.log('  ✓ ' + filename + ' (' + items.length + ')');
+      if (data.hasMore === false) break;
+      await sleep(400);
+    } catch(e) { console.warn('  ✗ nongor page ' + page + ': ' + e.message); break; }
   }
-  return items;
+  console.log('  → Total nongor slugs: ' + allSlugs.size);
+
+  var slugs = Array.from(allSlugs).slice(0, DETAILS_PER_SOURCE);
+  var tasks = slugs.map(function(slug) {
+    return async function() {
+      var data = await fetchJson(getMovieUrl('nongor', slug));
+      if (!data.ok) throw new Error(data.error || 'not ok');
+      var safe = slug.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 200);
+      await githubPutFile('nongor/movie/' + safe + '.json', JSON.stringify(data), 'cache: nongor movie');
+      await sleep(400);
+    };
+  });
+  var res = await runWithConcurrency(tasks, CONCURRENCY);
+  console.log('  ✓ nongor details: ' + res.ok + ' ok, ' + res.fail + ' fail');
 }
 
-function parseFojikMoviePageDirect(html, targetUrl, slug) {
-  var titleM = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
-  var title = titleM ? titleM[1].replace(/<[^>]+>/g, '').trim() : slug;
-  var posterM = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i) || html.match(/<img[^>]+src="([^"]+)"/i);
-  var poster = posterM ? posterM[1] : '';
-  var storyM = html.match(/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
-  var storyline = storyM ? storyM[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 500).trim() : '';
-
-  var downloads = [];
-  var formRe = /<form[^>]*action=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/form>/gi;
-  var fm;
-  while ((fm = formRe.exec(html)) !== null) {
-    var action = fm[1];
-    var formInner = fm[2];
-    if (/FU/i.test(formInner) && /FN/i.test(formInner)) {
-      var fuM = formInner.match(/name=['"]FU['"]\s+value=['"]([^'"]+)['"]/i);
-      var fnM = formInner.match(/name=['"]FN['"]\s+value=['"]([^'"]+)['"]/i);
-      var fu = fuM ? fuM[1] : '';
-      var fn = fnM ? fnM[1] : '';
-      downloads.push({ label: 'Fojik Download', url: action, savelinks_url: action, action: action, fu: fu, fn: fn, fojikFu: fu, fojikFn: fn, quality: '1080P', host: 'Fojik Host', isFojikForm: true });
-    }
+// ── MAIN ────────────────────────────────────────────────────────────────────
+async function main() {
+  console.log('SKMovies Mega Cache Builder v4.11.13');
+  console.log('  Site: ' + SKM_SITE + '  Repo: ' + GH_REPO + '  Pages: ' + PAGES_PER_SOURCE + '  Details: ' + DETAILS_PER_SOURCE);
+  var requested = (process.env.SOURCES || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+  var all = requested.length > 0 ? requested : ['moviebox', 'hdhub4u', 'hdhubmain', 'mlsbd', 'fdm', 'fibwatch', 'fojik', 'krx18', 'nongor'];
+  for (var i = 0; i < all.length; i++) {
+    var src = all[i];
+    try {
+      if (src === 'moviebox') await buildMoviebox();
+      else if (src === 'hdhub4u') await buildHDHub('hdhub4u', HDHUB4U_HOSTS);
+      else if (src === 'hdhubmain') await buildHDHub('hdhubmain', HDHUBMAIN_HOSTS);
+      else if (src === 'fojik') await buildFojik();
+      else if (src === 'krx18') await buildGenericSource('krx18');
+      else if (src === 'nongor') await buildNongor();
+      else await buildGenericSource(src);
+    } catch(e) { console.error('FATAL ' + src + ': ' + e.message); }
   }
-
-  return { id: slug, slug: slug, title: title, poster: poster, storyline: storyline, genres: [], downloads: downloads, source: 'fojik', url: targetUrl };
+  console.log('\n✓ Cache build complete!');
 }
 
 main().catch(function(e) { console.error('Fatal:', e); process.exit(1); });
